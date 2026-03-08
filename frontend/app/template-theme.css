@@ -1,0 +1,36 @@
+@import url("https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&display=swap");
+
+:root {
+  --ll-template-bg-start: #e37682;
+  --ll-template-bg-end: #5f4d93;
+  --ll-template-surface: rgba(255, 255, 255, 0.92);
+  --ll-template-surface-border: rgba(255, 255, 255, 0.45);
+  --ll-template-text: #2b244d;
+  --ll-template-muted: #5d5a79;
+}
+
+body {
+  min-height: 100vh;
+  background-image: url("/template/overlay.png"), linear-gradient(45deg, var(--ll-template-bg-start) 15%, var(--ll-template-bg-end) 85%);
+  background-attachment: fixed;
+  color: var(--ll-template-text);
+  font-family: "Source Sans 3", var(--font-geist-sans), "Segoe UI", sans-serif;
+}
+
+.liquid-template-shell {
+  background: transparent;
+}
+
+.liquid-template-main {
+  border-radius: 1rem;
+}
+
+@media (max-width: 768px) {
+  body {
+    background-attachment: scroll;
+  }
+
+  .liquid-template-main {
+    border-radius: 0.75rem;
+  }
+}

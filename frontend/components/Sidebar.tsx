@@ -13,6 +13,8 @@ const navItems = [
   { name: "Jobs", href: "/jobs" },
   { name: "Gym", href: "/gym" },
   { name: "Learning", href: "/learning" },
+  { name: "Resume", href: "/resume" },
+  { name: "Cover Letter", href: "/cover-letter" },
 ];
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
