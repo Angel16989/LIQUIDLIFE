@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -45,6 +46,8 @@ class DocumentDetailAPIView(APIView):
 
 
 class JobListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         jobs = Job.objects.select_related("resume", "cover_letter").all().order_by("-application_date", "-id")
         serializer = JobSerializer(jobs, many=True)
@@ -58,6 +61,8 @@ class JobListCreateAPIView(APIView):
 
 
 class JobUpdateDeleteAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def put(self, request, id: int):
         job = get_object_or_404(Job.objects.select_related("resume", "cover_letter"), id=id)
         serializer = JobSerializer(job, data=request.data)

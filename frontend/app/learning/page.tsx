@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 type StudyEntry = {
   id: number;
@@ -24,6 +25,8 @@ const initialEntries: StudyEntry[] = [
 ];
 
 export default function LearningPage() {
+  const { isChecking, isAuthenticated } = useRequireAuth();
+
   const [entries, setEntries] = useState<StudyEntry[]>(initialEntries);
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
 
@@ -129,6 +132,14 @@ export default function LearningPage() {
     if (editingId === id) {
       resetForm();
     }
+  }
+
+  if (isChecking || !isAuthenticated) {
+    return (
+      <main className="ll-page flex items-center justify-center">
+        <p className="ll-muted">Checking access...</p>
+      </main>
+    );
   }
 
   return (

@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 type WorkoutExercise = {
   name: string;
@@ -59,6 +62,16 @@ const workoutPlan: WorkoutDay[] = [
 ];
 
 export default function GymPage() {
+  const { isChecking, isAuthenticated } = useRequireAuth();
+
+  if (isChecking || !isAuthenticated) {
+    return (
+      <main className="ll-page flex items-center justify-center">
+        <p className="ll-muted">Checking access...</p>
+      </main>
+    );
+  }
+
   return (
     <main className="ll-page px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-5xl space-y-6">

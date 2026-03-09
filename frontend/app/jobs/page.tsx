@@ -4,6 +4,8 @@ import { DragEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import DashboardCards, { type DashboardCard } from "@/components/DashboardCards";
 import DashboardLayout from "@/components/DashboardLayout";
 import { API_BASE_URL } from "@/lib/api";
+import { usePersistedState } from "@/hooks/usePersistedState";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 type JobStatus = "Applied" | "Interview" | "Offer" | "Rejected";
 type JobFilter = "All" | JobStatus;
@@ -51,6 +53,7 @@ type ApiDocument = {
 
 const JOBS_API_URL = `${API_BASE_URL}/jobs`;
 const DOCUMENTS_API_URL = `${API_BASE_URL}/documents`;
+const AUTH_TOKEN_STORAGE_KEY = "liquid-life-access-token";
 const statusOptions: JobStatus[] = ["Applied", "Interview", "Offer", "Rejected"];
 const filterOptions: JobFilter[] = ["All", ...statusOptions];
 const sortOptions: JobSort[] = ["Newest", "Company A-Z", "Status"];
@@ -138,7 +141,16 @@ function parseSelectionValue(value: string): number | "" {
   return Number.isNaN(numeric) ? "" : numeric;
 }
 
+function getAccessToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+}
+
 export default function JobsPage() {
+  const { isChecking, isAuthenticated } = useRequireAuth();
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -152,10 +164,10 @@ export default function JobsPage() {
   const [selectedResumeId, setSelectedResumeId] = useState<number | "">("");
   const [selectedCoverLetterId, setSelectedCoverLetterId] = useState<number | "">("");
 
-  const [statusFilter, setStatusFilter] = useState<JobFilter>("All");
-  const [searchText, setSearchText] = useState("");
+  const [statusFilter, setStatusFilter] = usePersistedState<JobFilter>("liquid-life-status-filter", "All");
+  const [searchText, setSearchText] = usePersistedState<string>("liquid-life-search", "");
   const [sortBy, setSortBy] = useState<JobSort>("Newest");
-  const [viewMode, setViewMode] = useState<JobsViewMode>("Table");
+  const [viewMode, setViewMode] = usePersistedState<JobsViewMode>("liquid-life-view-mode", "Table");
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editCompany, setEditCompany] = useState("");
@@ -172,8 +184,24 @@ export default function JobsPage() {
     try {
       setApiError(null);
       setIsLoading(true);
-      const response = await fetch(JOBS_API_URL);
+      const token = getAccessToken();
+      if (!token) {
+        setApiError("Login required. Save your JWT access token in localStorage key 'liquid-life-access-token'.");
+        setApplications([]);
+        return;
+      }
+
+      const response = await fetch(JOBS_API_URL, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       if (!response.ok) {
+        if (response.status === 401) {
+          setApiError("Unauthorized. Your token is missing or expired. Please login again.");
+          setApplications([]);
+          return;
+        }
         throw new Error("Failed to fetch jobs");
       }
 
@@ -299,13 +327,26 @@ export default function JobsPage() {
 
     try {
       setApiError(null);
+      const token = getAccessToken();
+      if (!token) {
+        setApiError("Login required before creating a job.");
+        return;
+      }
+
       const response = await fetch(JOBS_API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          setApiError("Unauthorized. Please login again.");
+          return;
+        }
         throw new Error("Failed to create job");
       }
 
@@ -368,13 +409,26 @@ export default function JobsPage() {
 
     try {
       setApiError(null);
+      const token = getAccessToken();
+      if (!token) {
+        setApiError("Login required before updating a job.");
+        return;
+      }
+
       const response = await fetch(`${JOBS_API_URL}/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(toApiPayload(updatedJob)),
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          setApiError("Unauthorized. Please login again.");
+          return;
+        }
         throw new Error("Failed to update job");
       }
 
@@ -395,8 +449,23 @@ export default function JobsPage() {
 
     try {
       setApiError(null);
-      const response = await fetch(`${JOBS_API_URL}/${id}`, { method: "DELETE" });
+      const token = getAccessToken();
+      if (!token) {
+        setApiError("Login required before deleting a job.");
+        return;
+      }
+
+      const response = await fetch(`${JOBS_API_URL}/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       if (!response.ok && response.status !== 204) {
+        if (response.status === 401) {
+          setApiError("Unauthorized. Please login again.");
+          return;
+        }
         throw new Error("Failed to delete job");
       }
 
@@ -415,15 +484,33 @@ export default function JobsPage() {
 
     const updatedJob: JobApplication = { ...currentJob, status: nextStatus };
 
+    // Optimistic UI update for smoother kanban/table interactions.
+    setApplications((current) => current.map((job) => (job.id === id ? updatedJob : job)));
+
     try {
       setApiError(null);
+      const token = getAccessToken();
+      if (!token) {
+        setApiError("Login required before changing status.");
+        setApplications((current) => current.map((job) => (job.id === id ? currentJob : job)));
+        return;
+      }
+
       const response = await fetch(`${JOBS_API_URL}/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(toApiPayload(updatedJob)),
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          setApiError("Unauthorized. Please login again.");
+          setApplications((current) => current.map((job) => (job.id === id ? currentJob : job)));
+          return;
+        }
         throw new Error("Failed to update status");
       }
 
@@ -431,6 +518,7 @@ export default function JobsPage() {
       setApplications((current) => current.map((job) => (job.id === id ? mapApiJob(saved) : job)));
     } catch (error) {
       setApiError("Could not update status.");
+      setApplications((current) => current.map((job) => (job.id === id ? currentJob : job)));
       console.error(error);
     }
   }
@@ -462,6 +550,14 @@ export default function JobsPage() {
   function handleKanbanDragEnd() {
     setDraggedJobId(null);
     setDragOverStatus(null);
+  }
+
+  if (isChecking || !isAuthenticated) {
+    return (
+      <main className="ll-page flex items-center justify-center">
+        <p className="ll-muted">Checking access...</p>
+      </main>
+    );
   }
 
   return (

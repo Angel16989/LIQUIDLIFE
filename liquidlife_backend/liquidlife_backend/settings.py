@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -17,6 +18,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
+    "accounts",
     "jobs",
 ]
 
@@ -83,3 +85,16 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 APPEND_SLASH = False
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
+}
+
+LIQUIDLIFE_ADMIN_USERNAME = os.getenv("LIQUIDLIFE_ADMIN_USERNAME", "LIQUIDLIFEADMIN")
+LIQUIDLIFE_ADMIN_PASSWORD = os.getenv("LIQUIDLIFE_ADMIN_PASSWORD", "WELCOME@123")
