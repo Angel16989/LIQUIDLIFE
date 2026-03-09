@@ -3,10 +3,13 @@
 :root {
   --ll-template-bg-start: #e37682;
   --ll-template-bg-end: #5f4d93;
-  --ll-template-surface: rgba(255, 255, 255, 0.92);
-  --ll-template-surface-border: rgba(255, 255, 255, 0.45);
+  --ll-template-surface: rgba(255, 255, 255, 0.9);
+  --ll-template-surface-strong: rgba(255, 255, 255, 0.95);
+  --ll-template-surface-soft: rgba(255, 255, 255, 0.72);
+  --ll-template-surface-border: rgba(255, 255, 255, 0.5);
   --ll-template-text: #2b244d;
   --ll-template-muted: #5d5a79;
+  --ll-template-accent: #4f3f85;
 }
 
 body {
@@ -23,6 +26,52 @@ body {
 
 .liquid-template-main {
   border-radius: 1rem;
+}
+
+.ll-page {
+  min-height: 100vh;
+  padding: 1.5rem;
+}
+
+.ll-container {
+  margin-inline: auto;
+  max-width: 72rem;
+}
+
+.ll-panel {
+  border: 1px solid var(--ll-template-surface-border);
+  background: var(--ll-template-surface);
+  border-radius: 1rem;
+  box-shadow: 0 14px 45px rgba(24, 13, 46, 0.2);
+  backdrop-filter: blur(8px);
+}
+
+.ll-panel-soft {
+  border: 1px solid var(--ll-template-surface-border);
+  background: var(--ll-template-surface-soft);
+  border-radius: 0.9rem;
+}
+
+.ll-title {
+  color: var(--ll-template-text);
+}
+
+.ll-muted {
+  color: var(--ll-template-muted);
+}
+
+.ll-pill-btn {
+  border: 1px solid rgba(92, 76, 148, 0.3);
+  background: var(--ll-template-surface-strong);
+  color: var(--ll-template-text);
+  border-radius: 999px;
+  transition: all 180ms ease;
+}
+
+.ll-pill-btn:hover {
+  transform: translateY(-1px);
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(46, 30, 95, 0.15);
 }
 
 @media (max-width: 768px) {

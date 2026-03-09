@@ -9,10 +9,8 @@ type SidebarProps = {
 };
 
 const navItems = [
-  { name: "Dashboard", href: "/dashboard" },
   { name: "Jobs", href: "/jobs" },
-  { name: "Gym", href: "/gym" },
-  { name: "Learning", href: "/learning" },
+  { name: "Documents", href: "/documents" },
   { name: "Resume", href: "/resume" },
   { name: "Cover Letter", href: "/cover-letter" },
 ];
@@ -23,7 +21,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   return (
     <>
       <div
-        className={`fixed inset-0 z-30 bg-black/50 transition-opacity md:hidden ${
+        className={`fixed inset-0 z-30 bg-[#130f26]/45 transition-opacity md:hidden ${
           isOpen ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         onClick={onClose}
@@ -31,25 +29,19 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       />
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-72 border-r border-zinc-200 bg-white p-4 shadow-xl transition-transform dark:border-zinc-800 dark:bg-zinc-950 md:translate-x-0 md:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-40 w-72 border-r border-white/45 bg-white/82 p-4 shadow-xl backdrop-blur transition-transform md:translate-x-0 md:shadow-none ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex h-full flex-col">
-          <div className="mb-8 px-2">
-            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
-              Liquid Life
-            </p>
-            <h1 className="mt-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-              Control Center
-            </h1>
-          </div>
+          <Link href="/" onClick={onClose} className="mb-8 block rounded-xl px-2 py-1 transition hover:bg-white/70">
+            <p className="text-xs uppercase tracking-[0.2em] text-[#6a6782]">Liquid Life</p>
+            <h1 className="mt-2 text-2xl font-semibold text-[#2b244d]">Career Center</h1>
+          </Link>
 
           <nav className="space-y-1">
             {navItems.map((item) => {
-              const active =
-                pathname === item.href ||
-                (item.href !== "/dashboard" && pathname.startsWith(item.href));
+              const active = pathname === item.href || pathname.startsWith(item.href);
 
               return (
                 <Link
@@ -58,8 +50,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   onClick={onClose}
                   className={`block rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
                     active
-                      ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-50"
+                      ? "bg-[#4f3f85] text-white"
+                      : "text-[#4b4665] hover:bg-white/75 hover:text-[#2b244d]"
                   }`}
                 >
                   {item.name}
@@ -68,8 +60,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             })}
           </nav>
 
-          <div className="mt-auto rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-            Keep it simple. Track what matters today.
+          <div className="mt-auto rounded-xl border border-white/55 bg-white/70 p-4 text-xs text-[#5d5a79]">
+            Career tools in one place.
           </div>
         </div>
       </aside>

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 type TopNavbarProps = {
   title: string;
   onMenuClick: () => void;
@@ -5,12 +7,12 @@ type TopNavbarProps = {
 
 export default function TopNavbar({ title, onMenuClick }: TopNavbarProps) {
   return (
-    <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/90">
+    <header className="sticky top-0 z-20 border-b border-white/45 bg-white/70 backdrop-blur">
       <div className="mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-3">
           <button
             onClick={onMenuClick}
-            className="rounded-lg border border-zinc-200 p-2 text-zinc-700 dark:border-zinc-800 dark:text-zinc-200 md:hidden"
+            className="rounded-lg border border-white/60 bg-white/70 p-2 text-[#3d316b] md:hidden"
             aria-label="Open menu"
             type="button"
           >
@@ -25,16 +27,20 @@ export default function TopNavbar({ title, onMenuClick }: TopNavbarProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{title}</h2>
+          <h2 className="text-lg font-semibold text-[#2b244d]">{title}</h2>
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="hidden rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 sm:inline-flex">
+          <span className="hidden rounded-full border border-white/60 bg-white/70 px-3 py-1 text-xs text-[#5d5a79] sm:inline-flex">
             Synced now
           </span>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">
+          <Link
+            href="/"
+            aria-label="Go to main dashboard"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4f3f85] text-xs font-semibold text-white transition hover:brightness-110"
+          >
             LL
-          </div>
+          </Link>
         </div>
       </div>
     </header>
