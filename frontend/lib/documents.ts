@@ -16,7 +16,9 @@ export type DocumentRecord = {
   updatedAt: string;
 };
 
-type ApiDocument = {
+export type DocumentFileKind = "pdf" | "docx" | "txt" | "unknown" | null;
+
+export type ApiDocument = {
   id: number;
   title: string;
   doc_type: DocumentType;
@@ -38,6 +40,41 @@ export function mapApiDocument(item: ApiDocument): DocumentRecord {
     createdAt: item.created_at,
     updatedAt: item.updated_at,
   };
+}
+
+export function getDocumentFileKind(fileUrl: string | null): DocumentFileKind {
+  if (!fileUrl) {
+    return null;
+  }
+
+  try {
+    const pathname = new URL(fileUrl).pathname.toLowerCase();
+    if (pathname.endsWith(".pdf")) {
+      return "pdf";
+    }
+    if (pathname.endsWith(".docx")) {
+      return "docx";
+    }
+    if (pathname.endsWith(".txt")) {
+      return "txt";
+    }
+  } catch {
+    return "unknown";
+  }
+
+  return "unknown";
+}
+
+export function getEmbeddableExternalLink(url: string): string {
+  if (!url) {
+    return "";
+  }
+
+  if (url.includes("docs.google.com")) {
+    return url.replace("/edit", "/preview");
+  }
+
+  return url;
 }
 
 export function stripHtml(html: string): string {

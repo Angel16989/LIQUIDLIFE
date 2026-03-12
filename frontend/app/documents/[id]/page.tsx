@@ -2,11 +2,23 @@
 
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { renderAsync } from "docx-preview";
 import DashboardLayout from "@/components/DashboardLayout";
 import { API_BASE_URL } from "@/lib/api";
-import { downloadAsDocx, downloadAsPdf, fetchDocument, type DocumentRecord, type DocumentType } from "@/lib/documents";
+import {
+  type ApiDocument,
+  downloadAsDocx,
+  downloadAsPdf,
+  fetchDocument,
+  getDocumentFileKind,
+  getEmbeddableExternalLink,
+  mapApiDocument,
+  type DocumentRecord,
+  type DocumentType,
+} from "@/lib/documents";
 
 type SaveFormState = {
   title: string;
@@ -29,6 +41,7 @@ export default function DocumentEditorPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const mode = searchParams.get("mode");
+  const isViewMode = mode === "view";
   const documentId = normalizeId(params.id);
 
   const [document, setDocument] = useState<DocumentRecord | null>(null);
@@ -43,6 +56,13 @@ export default function DocumentEditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [editorContent, setEditorContent] = useState("");
+  const [viewerError, setViewerError] = useState<string | null>(null);
+  const [viewerPdfUrl, setViewerPdfUrl] = useState<string | null>(null);
+  const [viewerText, setViewerText] = useState<string | null>(null);
+  const docxContainerRef = useRef<HTMLDivElement | null>(null);
+  const lastSavedSnapshotRef = useRef("");
+  const currentFileUrl = document?.fileUrl ?? null;
+  const currentExternalLink = document?.externalLink ?? "";
 
   const editor = useEditor({
     extensions: [StarterKit],
@@ -72,6 +92,13 @@ export default function DocumentEditorPage() {
         });
         editor?.commands.setContent(loaded.content || "");
         setEditorContent(loaded.content || "");
+        lastSavedSnapshotRef.current = JSON.stringify({
+          title: loaded.title,
+          docType: loaded.docType,
+          externalLink: loaded.externalLink,
+          content: loaded.content || "",
+          fileName: "",
+        });
       } catch (loadError) {
         console.error(loadError);
         setError("Could not load document.");
@@ -85,6 +112,18 @@ export default function DocumentEditorPage() {
 
   const saveDocument = useCallback(async (showError = true) => {
     if (!documentId || !editor || !document) {
+      return;
+    }
+
+    const snapshot = JSON.stringify({
+      title: form.title.trim(),
+      docType: form.docType,
+      externalLink: form.externalLink.trim(),
+      content: editorContent,
+      fileName: form.file?.name ?? "",
+    });
+
+    if (!form.file && snapshot === lastSavedSnapshotRef.current) {
       return;
     }
 
@@ -109,10 +148,30 @@ export default function DocumentEditorPage() {
         throw new Error("Failed to save document");
       }
 
-      const refreshed = await fetchDocument(documentId);
-      setDocument(refreshed);
-      setForm((current) => ({ ...current, file: null }));
-      setLastSavedAt(new Date().toLocaleTimeString());
+      const saved = mapApiDocument((await response.json()) as ApiDocument);
+      const shouldSyncEditorFromUpload = Boolean(form.file) && saved.content.trim().length > 0 && saved.content !== editorContent;
+      const nextEditorContent = shouldSyncEditorFromUpload ? saved.content : editorContent;
+
+      if (shouldSyncEditorFromUpload) {
+        editor.commands.setContent(saved.content);
+        setEditorContent(saved.content);
+      }
+
+      setDocument(saved);
+      setForm({
+        title: saved.title,
+        docType: saved.docType,
+        externalLink: saved.externalLink,
+        file: null,
+      });
+      setLastSavedAt(new Date(saved.updatedAt).toLocaleTimeString());
+      lastSavedSnapshotRef.current = JSON.stringify({
+        title: saved.title,
+        docType: saved.docType,
+        externalLink: saved.externalLink,
+        content: nextEditorContent,
+        fileName: "",
+      });
       setError(null);
     } catch (saveError) {
       console.error(saveError);
@@ -139,7 +198,7 @@ export default function DocumentEditorPage() {
   }, [editor]);
 
   useEffect(() => {
-    if (!editor || !document || mode === "view") {
+    if (!editor || !document) {
       return;
     }
 
@@ -148,19 +207,89 @@ export default function DocumentEditorPage() {
     }, 1500);
 
     return () => window.clearTimeout(timer);
-  }, [editorContent, mode, documentId, editor, document, saveDocument]);
+  }, [editorContent, form.title, form.docType, form.externalLink, form.file, documentId, editor, document, saveDocument]);
 
-  const viewerUrl = useMemo(() => {
-    if (!document) {
-      return null;
+  const shouldUseLiveContentPreview = editorContent.trim().length > 0 || (!currentFileUrl && !currentExternalLink);
+
+  useEffect(() => {
+    if (!documentId) {
+      return;
     }
 
-    if (document.externalLink) {
-      return document.externalLink;
+    if (shouldUseLiveContentPreview) {
+      setViewerError(null);
+      setViewerPdfUrl(null);
+      setViewerText(null);
+      if (docxContainerRef.current) {
+        docxContainerRef.current.innerHTML = "";
+      }
+      return;
     }
 
-    return document.fileUrl;
-  }, [document]);
+    setViewerError(null);
+    setViewerText(null);
+    if (docxContainerRef.current) {
+      docxContainerRef.current.innerHTML = "";
+    }
+
+    let objectUrl: string | null = null;
+
+    async function loadViewer() {
+      if (currentExternalLink) {
+        setViewerPdfUrl(null);
+        return;
+      }
+
+      if (!currentFileUrl) {
+        setViewerPdfUrl(null);
+        return;
+      }
+
+      const fileKind = getDocumentFileKind(currentFileUrl);
+      try {
+        const response = await fetch(currentFileUrl);
+        if (!response.ok) {
+          throw new Error("Failed to load file preview.");
+        }
+
+        if (fileKind === "pdf") {
+          const fileBlob = await response.blob();
+          objectUrl = URL.createObjectURL(fileBlob);
+          setViewerPdfUrl(objectUrl);
+          return;
+        }
+
+        if (fileKind === "txt") {
+          const text = await response.text();
+          setViewerText(text);
+          setViewerPdfUrl(null);
+          return;
+        }
+
+        if (fileKind === "docx") {
+          const fileBlob = await response.blob();
+          setViewerPdfUrl(null);
+          if (docxContainerRef.current) {
+            await renderAsync(fileBlob, docxContainerRef.current);
+          }
+          return;
+        }
+
+        setViewerPdfUrl(null);
+      } catch (loadError) {
+        console.error(loadError);
+        setViewerError("Preview is unavailable for this document.");
+      }
+    }
+
+    void loadViewer();
+
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [currentExternalLink, currentFileUrl, shouldUseLiveContentPreview, documentId]);
 
   return (
     <DashboardLayout title="Document Editor">
@@ -175,136 +304,223 @@ export default function DocumentEditorPage() {
           <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading document...</p>
         ) : (
           <>
-            <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Title</span>
-                  <input
-                    type="text"
-                    value={form.title}
-                    onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                    className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-                  />
-                </label>
+            <div className={`grid gap-6 ${isViewMode ? "xl:grid-cols-[0.95fr_1.05fr]" : ""}`}>
+              <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Editor</h3>
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                      Changes update the preview instantly and autosave in the background.
+                    </p>
+                  </div>
+                  {isViewMode && (
+                    <Link
+                      href={`/documents/${document.id}`}
+                      className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                    >
+                      Standard layout
+                    </Link>
+                  )}
+                </div>
 
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Type</span>
-                  <select
-                    value={form.docType}
-                    onChange={(event) => setForm((prev) => ({ ...prev, docType: event.target.value as DocumentType }))}
-                    className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Title</span>
+                    <input
+                      type="text"
+                      value={form.title}
+                      onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
+                      className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                    />
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Type</span>
+                    <select
+                      value={form.docType}
+                      onChange={(event) => setForm((prev) => ({ ...prev, docType: event.target.value as DocumentType }))}
+                      className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                    >
+                      <option value="general">General</option>
+                      <option value="resume">Resume</option>
+                      <option value="cover_letter">Cover Letter</option>
+                    </select>
+                  </label>
+
+                  <label className="space-y-2 md:col-span-2">
+                    <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">External Link</span>
+                    <input
+                      type="url"
+                      value={form.externalLink}
+                      onChange={(event) => setForm((prev) => ({ ...prev, externalLink: event.target.value }))}
+                      placeholder="https://docs.google.com/..."
+                      className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                    />
+                  </label>
+
+                  <label className="space-y-2 md:col-span-2">
+                    <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Replace File (PDF, DOCX, TXT)</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.docx,.txt"
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, file: event.target.files && event.target.files[0] ? event.target.files[0] : null }))
+                      }
+                      className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-200 file:px-3 file:py-1.5 file:text-xs file:font-medium dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:file:bg-zinc-800"
+                    />
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      Uploaded files are imported into the editor on save so you can keep editing them here.
+                    </p>
+                  </label>
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void editor.chain().focus().toggleBold().run()}
+                    className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
                   >
-                    <option value="general">General</option>
-                    <option value="resume">Resume</option>
-                    <option value="cover_letter">Cover Letter</option>
-                  </select>
-                </label>
+                    Bold
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                    className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
+                  >
+                    H2
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void editor.chain().focus().toggleBulletList().run()}
+                    className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
+                  >
+                    Bullet List
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void editor.chain().focus().toggleOrderedList().run()}
+                    className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
+                  >
+                    Ordered List
+                  </button>
+                </div>
 
-                <label className="space-y-2 md:col-span-2">
-                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">External Link</span>
-                  <input
-                    type="url"
-                    value={form.externalLink}
-                    onChange={(event) => setForm((prev) => ({ ...prev, externalLink: event.target.value }))}
-                    placeholder="https://docs.google.com/..."
-                    className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-                  />
-                </label>
+                <div className="mt-4 min-h-56 rounded-xl border border-zinc-300 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+                  <EditorContent editor={editor} />
+                </div>
 
-                <label className="space-y-2 md:col-span-2">
-                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Replace File (PDF, DOCX, TXT)</span>
-                  <input
-                    type="file"
-                    accept=".pdf,.docx,.txt"
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, file: event.target.files && event.target.files[0] ? event.target.files[0] : null }))
-                    }
-                    className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-200 file:px-3 file:py-1.5 file:text-xs file:font-medium dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:file:bg-zinc-800"
-                  />
-                </label>
-              </div>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void saveDocument(true)}
+                    disabled={isSaving}
+                    className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                  >
+                    {isSaving ? "Saving..." : "Save"}
+                  </button>
 
-              <div className="mt-5 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => void editor.chain().focus().toggleBold().run()}
-                  className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
-                >
-                  Bold
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                  className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
-                >
-                  H2
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void editor.chain().focus().toggleBulletList().run()}
-                  className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
-                >
-                  Bullet List
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void editor.chain().focus().toggleOrderedList().run()}
-                  className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
-                >
-                  Ordered List
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => void downloadAsPdf(form.title || document.title, editorContent)}
+                    className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                  >
+                    Download PDF
+                  </button>
 
-              <div className="mt-4 min-h-56 rounded-xl border border-zinc-300 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
-                <EditorContent editor={editor} />
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => void downloadAsDocx(form.title || document.title, editorContent)}
+                    className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                  >
+                    Download DOCX
+                  </button>
 
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => void saveDocument(true)}
-                  disabled={isSaving}
-                  className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-                >
-                  {isSaving ? "Saving..." : "Save"}
-                </button>
+                  <Link
+                    href={`/documents/${document.id}?mode=view`}
+                    className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                  >
+                    Open Viewer
+                  </Link>
 
-                <button
-                  type="button"
-                  onClick={() => void downloadAsPdf(form.title || document.title, editorContent)}
-                  className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
-                >
-                  Download PDF
-                </button>
+                  {lastSavedAt && <span className="text-xs text-zinc-500 dark:text-zinc-400">Last saved {lastSavedAt}</span>}
+                </div>
+              </section>
 
-                <button
-                  type="button"
-                  onClick={() => void downloadAsDocx(form.title || document.title, editorContent)}
-                  className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
-                >
-                  Download DOCX
-                </button>
-
-                {lastSavedAt && <span className="text-xs text-zinc-500 dark:text-zinc-400">Last saved {lastSavedAt}</span>}
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Viewer</h3>
-              <div className="mt-4">
-                {viewerUrl ? (
-                  <iframe
-                    title="Document Viewer"
-                    src={viewerUrl}
-                    className="h-[460px] w-full rounded-xl border border-zinc-200 dark:border-zinc-700"
-                  />
-                ) : (
-                  <article className="prose max-w-none rounded-xl border border-zinc-200 p-4 dark:prose-invert dark:border-zinc-700">
-                    <div dangerouslySetInnerHTML={{ __html: editorContent || "<p>No content yet.</p>" }} />
-                  </article>
-                )}
-              </div>
-            </section>
+              <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Live Preview</h3>
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                      This panel updates while you type. Uploaded files switch into the live editor after they are imported.
+                    </p>
+                  </div>
+                  {!isViewMode && (
+                    <Link
+                      href={`/documents/${document.id}?mode=view`}
+                      className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                    >
+                      Focus preview
+                    </Link>
+                  )}
+                </div>
+                <div className="mt-4">
+                  {shouldUseLiveContentPreview ? (
+                    <article className="prose max-w-none rounded-xl border border-zinc-200 p-4 dark:prose-invert dark:border-zinc-700">
+                      <div dangerouslySetInnerHTML={{ __html: editorContent || "<p>No content yet.</p>" }} />
+                    </article>
+                  ) : document.externalLink ? (
+                    <div className="space-y-3">
+                      <iframe
+                        title="Document Viewer"
+                        src={getEmbeddableExternalLink(document.externalLink)}
+                        className="h-[560px] w-full rounded-xl border border-zinc-200 dark:border-zinc-700"
+                      />
+                      <a
+                        href={document.externalLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                      >
+                        Open original link
+                      </a>
+                    </div>
+                  ) : viewerPdfUrl ? (
+                    <iframe
+                      title="Document Viewer"
+                      src={viewerPdfUrl}
+                      className="h-[560px] w-full rounded-xl border border-zinc-200 dark:border-zinc-700"
+                    />
+                  ) : viewerText ? (
+                    <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-200">
+                      {viewerText}
+                    </pre>
+                  ) : document.fileUrl && getDocumentFileKind(document.fileUrl) === "docx" ? (
+                    <div className="space-y-3">
+                      <div
+                        ref={docxContainerRef}
+                        className="min-h-[560px] overflow-auto rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
+                      />
+                      <a
+                        href={document.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                      >
+                        Download original DOCX
+                      </a>
+                    </div>
+                  ) : viewerError ? (
+                    <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                      {viewerError}
+                    </p>
+                  ) : (
+                    <article className="prose max-w-none rounded-xl border border-zinc-200 p-4 dark:prose-invert dark:border-zinc-700">
+                      <div dangerouslySetInnerHTML={{ __html: editorContent || "<p>No content yet.</p>" }} />
+                    </article>
+                  )}
+                </div>
+              </section>
+            </div>
           </>
         )}
       </div>

@@ -45,14 +45,6 @@ function buildFormData(form: CreateFormState): FormData {
   return data;
 }
 
-function getViewerUrl(document: DocumentRecord): string | null {
-  if (document.externalLink) {
-    return document.externalLink;
-  }
-
-  return document.fileUrl;
-}
-
 function getDocTypeLabel(docType: DocumentType): string {
   if (docType === "resume") {
     return "Resume";
@@ -74,8 +66,6 @@ function DocumentCard({
   onDelete: (id: number) => Promise<void>;
   onDownload: (document: DocumentRecord) => Promise<void>;
 }) {
-  const viewerUrl = getViewerUrl(document);
-
   return (
     <article className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900/60">
       <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{document.title}</p>
@@ -91,23 +81,12 @@ function DocumentCard({
           Edit
         </Link>
 
-        {viewerUrl ? (
-          <a
-            href={viewerUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            View
-          </a>
-        ) : (
-          <Link
-            href={`/documents/${document.id}?mode=view`}
-            className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            View
-          </Link>
-        )}
+        <Link
+          href={`/documents/${document.id}?mode=view`}
+          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          View
+        </Link>
 
         <button
           type="button"

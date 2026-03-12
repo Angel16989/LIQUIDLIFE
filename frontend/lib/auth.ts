@@ -1,5 +1,11 @@
 export const AUTH_TOKEN_STORAGE_KEY = "liquid-life-access-token";
+export const AUTH_USER_STORAGE_KEY = "liquid-life-user-meta";
 const AUTH_TOKEN_CHANGED_EVENT = "liquid-life-auth-token-changed";
+
+type AuthUserMeta = {
+  username: string;
+  isAdmin?: boolean;
+};
 
 function emitAuthTokenChanged() {
   if (typeof window === "undefined") {
@@ -35,13 +41,42 @@ export function setAuthToken(token: string) {
   emitAuthTokenChanged();
 }
 
+export function setAuthSession(token: string, userMeta: AuthUserMeta) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+  window.localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(userMeta));
+  emitAuthTokenChanged();
+}
+
 export function clearAuthToken() {
   if (typeof window === "undefined") {
     return;
   }
 
   window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  window.localStorage.removeItem(AUTH_USER_STORAGE_KEY);
   emitAuthTokenChanged();
+}
+
+export function getCurrentUsername(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(AUTH_USER_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as AuthUserMeta;
+    return typeof parsed.username === "string" ? parsed.username : null;
+  } catch {
+    return null;
+  }
 }
 
 export function subscribeToAuthTokenChanges(onStoreChange: () => void) {

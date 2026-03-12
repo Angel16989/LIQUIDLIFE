@@ -2,10 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import GoogleSignInButton from "@/components/GoogleSignInButton";
 import { API_BASE_URL } from "@/lib/api";
-import { hasAuthToken, setAuthSession } from "@/lib/auth";
 
 function getApiErrorMessage(payload: unknown, fallback: string): string {
   if (!payload || typeof payload !== "object") {
@@ -29,61 +26,54 @@ function getApiErrorMessage(payload: unknown, fallback: string): string {
   return fallback;
 }
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [username, setUsername] = useState("");
+export default function ResetPasswordPage() {
+  const [token, setToken] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [humanCheck, setHumanCheck] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
   useEffect(() => {
-    const registered = new URLSearchParams(window.location.search).get("registered");
-    if (registered === "1") {
-      setInfo("Registration submitted. Wait for admin approval before login.");
-    }
+    const nextToken = new URLSearchParams(window.location.search).get("token");
+    setToken(nextToken ?? "");
   }, []);
-
-  useEffect(() => {
-    if (hasAuthToken()) {
-      router.replace("/dashboard");
-    }
-  }, [router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (!username.trim() || !password) {
+    if (!token || !password || !confirmPassword) {
       return;
     }
 
     try {
       setIsSubmitting(true);
       setError(null);
+      setInfo(null);
 
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), password }),
+        body: JSON.stringify({
+          token,
+          password,
+          confirm_password: confirmPassword,
+          human_check: humanCheck,
+        }),
       });
 
+      const payload = (await response.json().catch(() => null)) as unknown;
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as unknown;
-        throw new Error(getApiErrorMessage(payload, "Invalid credentials"));
+        throw new Error(getApiErrorMessage(payload, "Failed to reset password."));
       }
 
-      const data = (await response.json()) as { access: string; refresh: string; is_admin?: boolean; username?: string };
-      setAuthSession(data.access, {
-        username: data.username ?? username.trim(),
-        isAdmin: Boolean(data.is_admin),
-      });
-      window.localStorage.setItem("liquid-life-refresh-token", data.refresh);
-
-      const next = new URLSearchParams(window.location.search).get("next");
-      router.replace(data.is_admin ? "/admin-panel" : next || "/dashboard");
+      setInfo("Password updated. You can log in now.");
+      setPassword("");
+      setConfirmPassword("");
+      setHumanCheck(false);
     } catch (submitError) {
       console.error(submitError);
-      setError(submitError instanceof Error ? submitError.message : "Login failed. Check username and password.");
+      setError(submitError instanceof Error ? submitError.message : "Failed to reset password.");
     } finally {
       setIsSubmitting(false);
     }
@@ -93,7 +83,8 @@ export default function LoginPage() {
     <main className="ll-page flex items-center justify-center px-4">
       <section className="ll-panel w-full max-w-md p-6 sm:p-8">
         <p className="text-xs uppercase tracking-[0.25em] ll-muted">Liquid Life</p>
-        <h1 className="mt-2 text-3xl font-semibold ll-title">Login</h1>
+        <h1 className="mt-2 text-3xl font-semibold ll-title">Reset Password</h1>
+        <p className="mt-2 text-sm ll-muted">Use the emailed link, confirm you are human, then set a new password.</p>
 
         {error && (
           <p className="mt-4 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
@@ -104,58 +95,58 @@ export default function LoginPage() {
           </p>
         )}
 
+        {!token && <p className="mt-4 text-sm ll-muted">Missing reset token. Use the link from your email.</p>}
+
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <label className="block space-y-2">
-            <span className="text-sm font-medium ll-title">Username</span>
-            <input
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              type="text"
-              required
-              className="w-full rounded-xl border border-white/60 bg-white/90 px-3 py-2 text-sm ll-title outline-none ring-[#5f4d93] transition focus:ring-2"
-              placeholder="your username"
-            />
-          </label>
-
-          <label className="block space-y-2">
-            <span className="text-sm font-medium ll-title">Password</span>
+            <span className="text-sm font-medium ll-title">New Password</span>
             <input
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               type="password"
               required
               className="w-full rounded-xl border border-white/60 bg-white/90 px-3 py-2 text-sm ll-title outline-none ring-[#5f4d93] transition focus:ring-2"
-              placeholder="••••••••"
+              placeholder="minimum 8 characters"
             />
+          </label>
+
+          <label className="block space-y-2">
+            <span className="text-sm font-medium ll-title">Confirm Password</span>
+            <input
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              type="password"
+              required
+              className="w-full rounded-xl border border-white/60 bg-white/90 px-3 py-2 text-sm ll-title outline-none ring-[#5f4d93] transition focus:ring-2"
+              placeholder="repeat password"
+            />
+          </label>
+
+          <label className="flex items-center gap-3 rounded-xl border border-white/60 bg-white/90 px-3 py-3 text-sm ll-title">
+            <input
+              checked={humanCheck}
+              onChange={(event) => setHumanCheck(event.target.checked)}
+              type="checkbox"
+              className="h-4 w-4 rounded border-zinc-300 text-[#4f3f85]"
+            />
+            <span>I am not a robot</span>
           </label>
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !token}
             className="w-full rounded-xl bg-[#4f3f85] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isSubmitting ? "Logging in..." : "Login"}
+            {isSubmitting ? "Updating..." : "Reset Password"}
           </button>
         </form>
 
-        <GoogleSignInButton
-          onError={(message) => setError(message)}
-          onSuccess={(isAdmin) => router.replace(isAdmin ? "/admin-panel" : "/dashboard")}
-        />
-
-        <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-sm ll-muted">
-          <p>
-            No account?{" "}
-            <Link href="/register" className="font-semibold text-[#3e3170] hover:underline">
-              Register
-            </Link>
-          </p>
-          <p>
-            <Link href="/forgot-password" className="font-semibold text-[#3e3170] hover:underline">
-              Forgot password?
-            </Link>
-          </p>
-        </div>
+        <p className="mt-5 text-sm ll-muted">
+          Back to{" "}
+          <Link href="/login" className="font-semibold text-[#3e3170] hover:underline">
+            Login
+          </Link>
+        </p>
       </section>
     </main>
   );

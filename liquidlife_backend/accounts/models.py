@@ -28,3 +28,24 @@ class AccountAuthorizationRequest(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.username} ({self.status})"
+
+
+class PasswordResetRequest(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="password_reset_requests",
+        on_delete=models.CASCADE,
+    )
+    token = models.CharField(max_length=128, unique=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def is_expired(self) -> bool:
+        from django.utils import timezone
+
+        return timezone.now() >= self.expires_at
+
+    def __str__(self) -> str:
+        return f"{self.user.username} password reset"

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { API_BASE_URL } from "@/lib/api";
 import { clearAuthToken, getAuthToken } from "@/lib/auth";
@@ -16,6 +17,7 @@ type Engagement = {
 
 type AuthorizationRequest = {
   id: number;
+  user_id: number;
   username: string;
   status: "pending" | "approved" | "rejected";
   note: string;
@@ -25,10 +27,45 @@ type AuthorizationRequest = {
   updated_at: string;
 };
 
+type UserAccount = {
+  id: number;
+  username: string;
+  email: string;
+  is_active: boolean;
+  is_staff: boolean;
+  date_joined: string;
+  last_login: string | null;
+  authorization_status: "pending" | "approved" | "rejected" | "inactive" | "admin";
+  authorization_request_id: number | null;
+};
+
 type AdminPanelPayload = {
   engagement: Engagement;
   authorization_requests: AuthorizationRequest[];
+  users: UserAccount[];
 };
+
+function getApiErrorMessage(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== "object") {
+    return fallback;
+  }
+
+  const typed = payload as Record<string, unknown>;
+  if (typeof typed.detail === "string" && typed.detail.trim()) {
+    return typed.detail;
+  }
+
+  for (const value of Object.values(typed)) {
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+    if (Array.isArray(value) && typeof value[0] === "string" && value[0].trim()) {
+      return value[0];
+    }
+  }
+
+  return fallback;
+}
 
 async function fetchAdminPanelData(token: string): Promise<AdminPanelPayload> {
   const response = await fetch(`${API_BASE_URL}/auth/admin/engagement`, {
@@ -50,40 +87,72 @@ async function fetchAdminPanelData(token: string): Promise<AdminPanelPayload> {
   return (await response.json()) as AdminPanelPayload;
 }
 
+function getStatusClasses(status: UserAccount["authorization_status"] | AuthorizationRequest["status"]) {
+  const styles: Record<string, string> = {
+    pending: "border-amber-300 bg-amber-50 text-amber-700",
+    approved: "border-emerald-300 bg-emerald-50 text-emerald-700",
+    rejected: "border-rose-300 bg-rose-50 text-rose-700",
+    inactive: "border-zinc-300 bg-zinc-100 text-zinc-700",
+    admin: "border-sky-300 bg-sky-50 text-sky-700",
+  };
+
+  return styles[status] ?? styles.inactive;
+}
+
 export default function AdminPanelPage() {
+  const router = useRouter();
   const { isChecking, isAuthenticated } = useRequireAuth();
   const [payload, setPayload] = useState<AdminPanelPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeMutationKey, setActiveMutationKey] = useState<string | null>(null);
+  const [passwordInputs, setPasswordInputs] = useState<Record<number, string>>({});
+  const [generatedPasswords, setGeneratedPasswords] = useState<Record<number, string>>({});
 
-  async function loadData() {
-    const token = getAuthToken();
-    if (!token) {
-      setError("Missing access token.");
-      return;
-    }
+  const loadData = useCallback(
+    async (showLoader = true) => {
+      const token = getAuthToken();
+      if (!token) {
+        setError("Missing access token.");
+        return;
+      }
 
-    try {
-      setIsLoading(true);
-      setError(null);
-      const data = await fetchAdminPanelData(token);
-      setPayload(data);
-    } catch (loadError) {
-      console.error(loadError);
-      setError(loadError instanceof Error ? loadError.message : "Could not load admin data.");
-      setPayload(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }
+      try {
+        if (showLoader) {
+          setIsLoading(true);
+        }
+        setError(null);
+        const data = await fetchAdminPanelData(token);
+        setPayload(data);
+      } catch (loadError) {
+        console.error(loadError);
+        const nextError = loadError instanceof Error ? loadError.message : "Could not load admin data.";
+        setError(nextError);
+        setPayload(null);
+        if (nextError === "Admin access required.") {
+          router.replace("/dashboard");
+        }
+      } finally {
+        if (showLoader) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [router],
+  );
 
   useEffect(() => {
     if (!isAuthenticated) {
       return;
     }
 
-    void loadData();
-  }, [isAuthenticated]);
+    void loadData(true);
+    const intervalId = window.setInterval(() => {
+      void loadData(false);
+    }, 5000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isAuthenticated, loadData]);
 
   async function handleDecision(requestId: number, decision: "approved" | "rejected") {
     const token = getAuthToken();
@@ -94,6 +163,7 @@ export default function AdminPanelPage() {
 
     try {
       setError(null);
+      setActiveMutationKey(`${decision}-${requestId}`);
       const response = await fetch(`${API_BASE_URL}/auth/authorization-requests/${requestId}/decision`, {
         method: "POST",
         headers: {
@@ -104,18 +174,106 @@ export default function AdminPanelPage() {
       });
 
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { detail?: string } | null;
-        throw new Error(body?.detail || "Failed to update authorization request.");
+        const body = (await response.json().catch(() => null)) as unknown;
+        throw new Error(getApiErrorMessage(body, "Failed to update authorization request."));
       }
 
-      await loadData();
+      await loadData(false);
     } catch (decisionError) {
       console.error(decisionError);
       setError(decisionError instanceof Error ? decisionError.message : "Could not update request.");
+    } finally {
+      setActiveMutationKey(null);
     }
   }
 
-  const pendingRequests = useMemo(() => payload?.authorization_requests.filter((item) => item.status === "pending") ?? [], [payload]);
+  async function handleDeleteUser(userId: number, username: string) {
+    const shouldDelete = window.confirm(`Delete user '${username}'?`);
+    if (!shouldDelete) {
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      setError("Missing access token.");
+      return;
+    }
+
+    try {
+      setError(null);
+      setActiveMutationKey(`delete-${userId}`);
+      const response = await fetch(`${API_BASE_URL}/auth/users/${userId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as unknown;
+        throw new Error(getApiErrorMessage(body, "Failed to delete user."));
+      }
+
+      await loadData(false);
+    } catch (deleteError) {
+      console.error(deleteError);
+      setError(deleteError instanceof Error ? deleteError.message : "Could not delete user.");
+    } finally {
+      setActiveMutationKey(null);
+    }
+  }
+
+  async function handleSetPassword(userId: number, generatePassword: boolean) {
+    const token = getAuthToken();
+    if (!token) {
+      setError("Missing access token.");
+      return;
+    }
+
+    const manualPassword = passwordInputs[userId] ?? "";
+    if (!generatePassword && !manualPassword.trim()) {
+      setError("Enter a password before saving.");
+      return;
+    }
+
+    try {
+      setError(null);
+      setActiveMutationKey(`password-${userId}-${generatePassword ? "auto" : "manual"}`);
+      const response = await fetch(`${API_BASE_URL}/auth/users/${userId}/password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          password: manualPassword,
+          generate_password: generatePassword,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as { detail?: string; generated_password?: string } | null;
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(payload, "Failed to update password."));
+      }
+
+      setPasswordInputs((current) => ({ ...current, [userId]: "" }));
+      setGeneratedPasswords((current) =>
+        payload?.generated_password ? { ...current, [userId]: payload.generated_password } : current,
+      );
+      await loadData(false);
+    } catch (passwordError) {
+      console.error(passwordError);
+      setError(passwordError instanceof Error ? passwordError.message : "Could not update password.");
+    } finally {
+      setActiveMutationKey(null);
+    }
+  }
+
+  const pendingRequests = useMemo(
+    () => payload?.authorization_requests.filter((item) => item.status === "pending") ?? [],
+    [payload],
+  );
+  const userAccounts = useMemo(() => payload?.users ?? [], [payload]);
 
   if (isChecking || !isAuthenticated) {
     return (
@@ -131,7 +289,8 @@ export default function AdminPanelPage() {
         <header className="ll-panel flex flex-wrap items-center justify-between gap-3 p-6">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] ll-muted">Liquid Life</p>
-            <h1 className="mt-2 text-3xl font-semibold ll-title">Admin Panel</h1>
+            <h1 className="mt-2 text-3xl font-semibold ll-title">Admin Dashboard</h1>
+            <p className="mt-2 text-sm ll-muted">Live account review, approvals, and user control.</p>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -182,11 +341,14 @@ export default function AdminPanelPage() {
         </section>
 
         <section className="ll-panel p-6">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold ll-title">Account Authorization Requests</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold ll-title">Registration Requests</h2>
+              <p className="mt-1 text-sm ll-muted">Auto-refreshes every 5 seconds.</p>
+            </div>
             <button
               type="button"
-              onClick={() => void loadData()}
+              onClick={() => void loadData(true)}
               className="ll-pill-btn px-3 py-2 text-sm font-semibold"
               disabled={isLoading}
             >
@@ -194,33 +356,164 @@ export default function AdminPanelPage() {
             </button>
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
             {pendingRequests.map((request) => (
               <article key={request.id} className="rounded-xl border border-white/50 bg-white/65 p-4">
-                <p className="text-sm font-semibold ll-title">{request.username}</p>
-                <p className="mt-1 text-xs ll-muted">Requested: {new Date(request.created_at).toLocaleString()}</p>
-                {request.note && <p className="mt-2 text-sm ll-muted">{request.note}</p>}
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold ll-title">{request.username}</p>
+                    <p className="mt-1 text-xs ll-muted">Requested: {new Date(request.created_at).toLocaleString()}</p>
+                  </div>
+                  <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${getStatusClasses(request.status)}`}>
+                    {request.status}
+                  </span>
+                </div>
+
+                {request.note && <p className="mt-3 text-sm ll-muted">{request.note}</p>}
+
+                <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => void handleDecision(request.id, "approved")}
-                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110"
+                    disabled={activeMutationKey === `approved-${request.id}` || activeMutationKey === `rejected-${request.id}`}
+                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
                   >
                     Approve
                   </button>
                   <button
                     type="button"
                     onClick={() => void handleDecision(request.id, "rejected")}
-                    className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110"
+                    disabled={activeMutationKey === `approved-${request.id}` || activeMutationKey === `rejected-${request.id}`}
+                    className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
                   >
                     Reject
                   </button>
                 </div>
               </article>
             ))}
+
             {!isLoading && pendingRequests.length === 0 && (
               <p className="text-sm ll-muted">No pending account authorization requests.</p>
             )}
+          </div>
+        </section>
+
+        <section className="ll-panel p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold ll-title">User Accounts</h2>
+              <p className="mt-1 text-sm ll-muted">Delete normal users directly from here.</p>
+            </div>
+            <p className="text-sm ll-muted">{userAccounts.length} accounts</p>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {userAccounts.map((user) => (
+              <article key={user.id} className="rounded-xl border border-white/50 bg-white/65 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold ll-title">{user.username}</p>
+                    <p className="mt-1 text-xs ll-muted">Joined: {new Date(user.date_joined).toLocaleString()}</p>
+                  </div>
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${getStatusClasses(user.authorization_status)}`}
+                  >
+                    {user.authorization_status}
+                  </span>
+                </div>
+
+                <p className="mt-3 text-xs ll-muted">
+                  Last login: {user.last_login ? new Date(user.last_login).toLocaleString() : "Never"}
+                </p>
+                <p className="mt-1 text-xs ll-muted">Email: {user.email || "No email"}</p>
+                <p className="mt-1 text-xs ll-muted">Access: {user.is_active ? "enabled" : "blocked"}</p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {user.authorization_status === "pending" && user.authorization_request_id ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void handleDecision(user.authorization_request_id as number, "approved")}
+                        disabled={
+                          activeMutationKey === `approved-${user.authorization_request_id}` ||
+                          activeMutationKey === `rejected-${user.authorization_request_id}`
+                        }
+                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDecision(user.authorization_request_id as number, "rejected")}
+                        disabled={
+                          activeMutationKey === `approved-${user.authorization_request_id}` ||
+                          activeMutationKey === `rejected-${user.authorization_request_id}`
+                        }
+                        className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  ) : null}
+
+                  {user.is_staff ? (
+                    <span className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700">
+                      Protected admin
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteUser(user.id, user.username)}
+                      disabled={activeMutationKey === `delete-${user.id}`}
+                      className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                    >
+                      {activeMutationKey === `delete-${user.id}` ? "Deleting..." : "Delete user"}
+                    </button>
+                  )}
+                </div>
+
+                {!user.is_staff && (
+                  <div className="mt-4 space-y-2 rounded-xl border border-white/50 bg-white/80 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] ll-muted">Password Tools</p>
+                    <input
+                      value={passwordInputs[user.id] ?? ""}
+                      onChange={(event) =>
+                        setPasswordInputs((current) => ({ ...current, [user.id]: event.target.value }))
+                      }
+                      type="password"
+                      placeholder="Set a manual password"
+                      className="w-full rounded-lg border border-white/60 bg-white/95 px-3 py-2 text-sm ll-title outline-none ring-[#5f4d93] transition focus:ring-2"
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleSetPassword(user.id, false)}
+                        disabled={activeMutationKey === `password-${user.id}-manual`}
+                        className="rounded-lg bg-[#4f3f85] px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+                      >
+                        Save Password
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleSetPassword(user.id, true)}
+                        disabled={activeMutationKey === `password-${user.id}-auto`}
+                        className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100 disabled:opacity-60"
+                      >
+                        Generate Temp Password
+                      </button>
+                    </div>
+                    {generatedPasswords[user.id] && (
+                      <p className="text-xs ll-muted">
+                        Temporary password:{" "}
+                        <span className="font-semibold text-[#2b244d]">{generatedPasswords[user.id]}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+              </article>
+            ))}
+
+            {userAccounts.length === 0 && <p className="text-sm ll-muted">No user accounts found.</p>}
           </div>
         </section>
       </div>

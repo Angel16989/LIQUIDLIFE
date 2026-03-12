@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .document_content import ensure_document_content
 from .models import Document, Job
 from .serializers import DocumentSerializer, JobSerializer
 
@@ -29,6 +30,7 @@ class DocumentDetailAPIView(APIView):
 
     def get(self, request, id: int):
         document = get_object_or_404(Document, id=id)
+        ensure_document_content(document)
         serializer = DocumentSerializer(document, context={"request": request})
         return Response(serializer.data)
 

@@ -98,3 +98,13 @@ SIMPLE_JWT = {
 
 LIQUIDLIFE_ADMIN_USERNAME = os.getenv("LIQUIDLIFE_ADMIN_USERNAME", "LIQUIDLIFEADMIN")
 LIQUIDLIFE_ADMIN_PASSWORD = os.getenv("LIQUIDLIFE_ADMIN_PASSWORD", "WELCOME@123")
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
+GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
+
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Liquid Life <no-reply@liquidlife.local>")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"

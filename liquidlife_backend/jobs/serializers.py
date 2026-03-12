@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from .document_content import extract_document_content
 from .models import Document, Job
 
 
@@ -36,6 +37,30 @@ class DocumentSerializer(serializers.ModelSerializer):
         if not (name.endswith(".pdf") or name.endswith(".docx") or name.endswith(".txt")):
             raise serializers.ValidationError("Only PDF, DOCX, and TXT files are supported.")
         return value
+
+    def create(self, validated_data):
+        upload = validated_data.get("file")
+        content = (validated_data.get("content") or "").strip()
+        if upload and not content:
+            validated_data["content"] = extract_document_content(upload)
+        return super().create(validated_data)
+
+    def update(self, instance: Document, validated_data):
+        upload = validated_data.get("file")
+        incoming_content = validated_data.get("content")
+        should_replace_content = False
+
+        if upload:
+            if incoming_content is None:
+                should_replace_content = not instance.content.strip()
+            else:
+                normalized_incoming = incoming_content.strip()
+                should_replace_content = not normalized_incoming or incoming_content == instance.content
+
+        if should_replace_content:
+            validated_data["content"] = extract_document_content(upload)
+
+        return super().update(instance, validated_data)
 
 
 class JobSerializer(serializers.ModelSerializer):
