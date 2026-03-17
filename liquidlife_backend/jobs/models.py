@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -7,8 +8,23 @@ class Document(models.Model):
         RESUME = "resume", "Resume"
         COVER_LETTER = "cover_letter", "Cover Letter"
 
+    class TemplateName(models.TextChoices):
+        BALANCED = "balanced", "Balanced"
+        EXECUTIVE = "executive", "Executive"
+        MINIMAL = "minimal", "Minimal"
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="documents",
+        on_delete=models.CASCADE,
+    )
     title = models.CharField(max_length=255)
     doc_type = models.CharField(max_length=20, choices=DocType.choices)
+    template_name = models.CharField(
+        max_length=20,
+        choices=TemplateName.choices,
+        default=TemplateName.BALANCED,
+    )
     content = models.TextField(blank=True)
     file = models.FileField(upload_to="documents/", blank=True, null=True)
     external_link = models.URLField(blank=True)
@@ -26,6 +42,11 @@ class Job(models.Model):
         OFFER = "Offer", "Offer"
         REJECTED = "Rejected", "Rejected"
 
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="jobs",
+        on_delete=models.CASCADE,
+    )
     company = models.CharField(max_length=255)
     role = models.CharField(max_length=255)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.APPLIED)

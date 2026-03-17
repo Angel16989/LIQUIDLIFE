@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     AdminEngagementAPIView,
+    AdminUserCreateAPIView,
     AdminUserDeleteAPIView,
     AdminUserPasswordAPIView,
     AuthorizationRequestDecisionAPIView,
@@ -19,6 +20,7 @@ urlpatterns = [
     path("forgot-password", ForgotPasswordAPIView.as_view(), name="auth-forgot-password"),
     path("reset-password", ResetPasswordAPIView.as_view(), name="auth-reset-password"),
     path("admin/engagement", AdminEngagementAPIView.as_view(), name="auth-admin-engagement"),
+    path("users", AdminUserCreateAPIView.as_view(), name="auth-admin-user-create"),
     path("users/<int:id>", AdminUserDeleteAPIView.as_view(), name="auth-admin-user-delete"),
     path("users/<int:id>/password", AdminUserPasswordAPIView.as_view(), name="auth-admin-user-password"),
     path(

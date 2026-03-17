@@ -6,6 +6,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { API_BASE_URL } from "@/lib/api";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { requestNotificationsRefresh } from "@/lib/notifications";
 
 type JobStatus = "Applied" | "Interview" | "Offer" | "Rejected";
 type JobFilter = "All" | JobStatus;
@@ -219,7 +220,18 @@ export default function JobsPage() {
     async function loadPageData() {
       await loadJobs();
       try {
-        const documentsResponse = await fetch(DOCUMENTS_API_URL);
+        const token = getAccessToken();
+        if (!token) {
+          setResumes([]);
+          setCoverLetters([]);
+          return;
+        }
+
+        const documentsResponse = await fetch(DOCUMENTS_API_URL, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (!documentsResponse.ok) {
           throw new Error("Failed to fetch documents");
         }
@@ -235,6 +247,14 @@ export default function JobsPage() {
 
     void loadPageData();
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    requestNotificationsRefresh();
+  }, [applications, isAuthenticated]);
 
   const resumeTitleById = useMemo(() => new Map(resumes.map((item) => [item.id, item.title])), [resumes]);
   const coverLetterTitleById = useMemo(

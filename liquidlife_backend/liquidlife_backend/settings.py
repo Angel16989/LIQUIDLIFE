@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "accounts",
     "jobs",
+    "procurement",
 ]
 
 MIDDLEWARE = [
@@ -100,6 +101,8 @@ LIQUIDLIFE_ADMIN_USERNAME = os.getenv("LIQUIDLIFE_ADMIN_USERNAME", "LIQUIDLIFEAD
 LIQUIDLIFE_ADMIN_PASSWORD = os.getenv("LIQUIDLIFE_ADMIN_PASSWORD", "WELCOME@123")
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
 GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Liquid Life <no-reply@liquidlife.local>")

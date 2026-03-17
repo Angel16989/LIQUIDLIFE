@@ -3,12 +3,30 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { API_BASE_URL } from "@/lib/api";
-import { type DocumentRecord, type DocumentType, downloadAsPdf, fetchDocuments } from "@/lib/documents";
+import { getAuthToken } from "@/lib/auth";
+import {
+  type DocumentRecord,
+  type DocumentType,
+  downloadUploadedDocumentFile,
+  downloadAsPdf,
+  fetchDocuments,
+  normalizeDocumentContentInput,
+} from "@/lib/documents";
+import {
+  DEFAULT_DOCUMENT_TEMPLATE,
+  DOCUMENT_TEMPLATE_OPTIONS,
+  getDocumentTemplateLabel,
+  getStarterDocumentContent,
+  type DocumentTemplateName,
+} from "@/lib/documentTemplates";
+import { requestNotificationsRefresh } from "@/lib/notifications";
 
 type CreateFormState = {
   title: string;
   docType: DocumentType;
+  templateName: DocumentTemplateName;
   content: string;
   externalLink: string;
   file: File | null;
@@ -17,6 +35,7 @@ type CreateFormState = {
 const initialFormState: CreateFormState = {
   title: "",
   docType: "general",
+  templateName: DEFAULT_DOCUMENT_TEMPLATE,
   content: "",
   externalLink: "",
   file: null,
@@ -33,9 +52,12 @@ function formatTimestamp(value: string): string {
 
 function buildFormData(form: CreateFormState): FormData {
   const data = new FormData();
+  const normalizedContent = normalizeDocumentContentInput(form.content);
+  const shouldUseStarter = !normalizedContent && !form.file && !form.externalLink.trim();
   data.append("title", form.title.trim());
   data.append("doc_type", form.docType);
-  data.append("content", form.content);
+  data.append("template_name", form.templateName);
+  data.append("content", shouldUseStarter ? getStarterDocumentContent(form.docType, form.title) : normalizedContent);
   data.append("external_link", form.externalLink.trim());
 
   if (form.file) {
@@ -70,7 +92,8 @@ function DocumentCard({
     <article className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900/60">
       <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{document.title}</p>
       <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-        {getDocTypeLabel(document.docType)} • Updated {formatTimestamp(document.updatedAt)}
+        {getDocTypeLabel(document.docType)} • {getDocumentTemplateLabel(document.templateName)} template • Updated{" "}
+        {formatTimestamp(document.updatedAt)}
       </p>
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -109,6 +132,7 @@ function DocumentCard({
 }
 
 export default function DocumentsPage() {
+  const { isChecking, isAuthenticated } = useRequireAuth();
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,13 +153,25 @@ export default function DocumentsPage() {
   }
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
     void loadDocuments();
-  }, []);
+  }, [isAuthenticated]);
 
   const sortedDocuments = useMemo(
     () => [...documents].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
     [documents],
   );
+  const resumeCount = useMemo(() => documents.filter((document) => document.docType === "resume").length, [documents]);
+  const coverLetterCount = useMemo(
+    () => documents.filter((document) => document.docType === "cover_letter").length,
+    [documents],
+  );
+
+  useEffect(() => {
+    requestNotificationsRefresh();
+  }, [documents.length, resumeCount, coverLetterCount]);
 
   async function handleCreateDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -146,8 +182,15 @@ export default function DocumentsPage() {
 
     try {
       setError(null);
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error("Login required.");
+      }
       const response = await fetch(`${API_BASE_URL}/documents`, {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         body: buildFormData(form),
       });
 
@@ -157,6 +200,7 @@ export default function DocumentsPage() {
 
       setForm(initialFormState);
       await loadDocuments();
+      requestNotificationsRefresh();
     } catch (createError) {
       console.error(createError);
       setError("Could not create document.");
@@ -171,8 +215,15 @@ export default function DocumentsPage() {
 
     try {
       setError(null);
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error("Login required.");
+      }
       const response = await fetch(`${API_BASE_URL}/documents/${id}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (!response.ok && response.status !== 204) {
@@ -180,6 +231,7 @@ export default function DocumentsPage() {
       }
 
       setDocuments((current) => current.filter((item) => item.id !== id));
+      requestNotificationsRefresh();
     } catch (deleteError) {
       console.error(deleteError);
       setError("Could not delete document.");
@@ -188,11 +240,24 @@ export default function DocumentsPage() {
 
   async function handleDownloadDocument(document: DocumentRecord) {
     if (document.fileUrl) {
-      window.open(document.fileUrl, "_blank", "noopener,noreferrer");
+      await downloadUploadedDocumentFile(document);
       return;
     }
 
-    await downloadAsPdf(document.title, document.content);
+    await downloadAsPdf({
+      title: document.title,
+      docType: document.docType,
+      templateName: document.templateName,
+      htmlContent: document.content,
+    });
+  }
+
+  if (isChecking || !isAuthenticated) {
+    return (
+      <main className="ll-page flex items-center justify-center">
+        <p className="ll-muted">Checking access...</p>
+      </main>
+    );
   }
 
   return (
@@ -234,6 +299,23 @@ export default function DocumentsPage() {
               </select>
             </label>
 
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Template</span>
+              <select
+                value={form.templateName}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, templateName: event.target.value as DocumentTemplateName }))
+                }
+                className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              >
+                {DOCUMENT_TEMPLATE_OPTIONS.map((template) => (
+                  <option key={template.name} value={template.name}>
+                    {template.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <label className="space-y-2 md:col-span-2">
               <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">External Link (Optional)</span>
               <input
@@ -266,6 +348,23 @@ export default function DocumentsPage() {
                 placeholder="Write document content now, or open the editor after creating..."
                 className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      content: getStarterDocumentContent(prev.docType, prev.title),
+                    }))
+                  }
+                  className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100"
+                >
+                  Insert starter layout
+                </button>
+                <p className="text-xs text-zinc-500">
+                  Blank documents get a starter layout automatically, and the selected template controls preview/export formatting.
+                </p>
+              </div>
             </label>
 
             <button

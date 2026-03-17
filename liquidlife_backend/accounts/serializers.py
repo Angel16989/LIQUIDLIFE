@@ -11,7 +11,11 @@ ADMIN_USERNAME = getattr(settings, "LIQUIDLIFE_ADMIN_USERNAME", "LIQUIDLIFEADMIN
 class RegisterSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True, min_length=8)
+    password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        error_messages={"min_length": "Password must be at least 8 characters."},
+    )
 
     def validate_username(self, value: str) -> str:
         if value.strip().upper() == ADMIN_USERNAME.upper():
@@ -44,6 +48,10 @@ class RegisterSerializer(serializers.Serializer):
         return user
 
 
+class AdminCreateUserSerializer(RegisterSerializer):
+    pass
+
+
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     password = serializers.CharField(write_only=True)
@@ -58,8 +66,16 @@ class ForgotPasswordSerializer(serializers.Serializer):
 
 class ResetPasswordSerializer(serializers.Serializer):
     token = serializers.CharField(max_length=128)
-    password = serializers.CharField(write_only=True, min_length=8)
-    confirm_password = serializers.CharField(write_only=True, min_length=8)
+    password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        error_messages={"min_length": "Password must be at least 8 characters."},
+    )
+    confirm_password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        error_messages={"min_length": "Password confirmation must be at least 8 characters."},
+    )
     human_check = serializers.BooleanField()
 
     def validate(self, attrs):
@@ -72,7 +88,13 @@ class ResetPasswordSerializer(serializers.Serializer):
 
 
 class AdminSetPasswordSerializer(serializers.Serializer):
-    password = serializers.CharField(write_only=True, min_length=8, required=False, allow_blank=True)
+    password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        required=False,
+        allow_blank=True,
+        error_messages={"min_length": "Password must be at least 8 characters."},
+    )
     generate_password = serializers.BooleanField(required=False, default=False)
 
     def validate(self, attrs):

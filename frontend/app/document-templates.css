@@ -1,0 +1,226 @@
+.ll-document-sheet {
+  width: 100%;
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 3rem 3.1rem;
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 1.5rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+  box-shadow: 0 22px 48px rgba(71, 85, 105, 0.12);
+  color: #24324a;
+}
+
+.ll-document-header {
+  margin-bottom: 2rem;
+}
+
+.ll-document-kicker {
+  margin: 0 0 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+.ll-document-title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+
+.ll-document-body {
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.ll-smart-document-flow {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.ll-document-body h1,
+.ll-document-body h2,
+.ll-document-body h3 {
+  margin: 1.5rem 0 0.7rem;
+  color: #203049;
+  line-height: 1.2;
+}
+
+.ll-document-body h1 {
+  font-size: 1.5rem;
+}
+
+.ll-document-body h2 {
+  font-size: 1.16rem;
+}
+
+.ll-document-body h3 {
+  font-size: 1rem;
+}
+
+.ll-document-body p,
+.ll-document-body ul,
+.ll-document-body ol,
+.ll-document-body blockquote {
+  margin: 0 0 0.95rem;
+}
+
+.ll-document-body ul,
+.ll-document-body ol {
+  padding-left: 1.3rem;
+}
+
+.ll-document-body li + li {
+  margin-top: 0.45rem;
+}
+
+.ll-document-body blockquote {
+  border-left: 4px solid rgba(61, 95, 168, 0.26);
+  padding-left: 1rem;
+  color: #546277;
+}
+
+.ll-document-body a {
+  color: #315aa6;
+  text-decoration: underline;
+}
+
+.ll-document-meta {
+  margin: 0 0 1rem;
+  color: #5f6f86;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.ll-document-lead {
+  margin: 0 0 1.2rem;
+  color: #31445f;
+  font-size: 1.04rem;
+  line-height: 1.8;
+}
+
+.ll-smart-section {
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 1rem 1.15rem 0.95rem;
+}
+
+.ll-smart-section-title {
+  margin: 0 0 0.8rem;
+  color: #294065;
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.ll-smart-section-content > :last-child {
+  margin-bottom: 0;
+}
+
+.ll-letter-body .ll-smart-section {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.ll-letter-salutation {
+  margin: 0 0 1rem;
+  font-weight: 600;
+  color: #24324a;
+}
+
+.ll-letter-closing {
+  margin-top: 1.4rem;
+  color: #31445f;
+}
+
+.ll-document-template-balanced {
+  border-top: 8px solid #4e6fb3;
+}
+
+.ll-document-template-balanced .ll-document-kicker {
+  color: #4e6fb3;
+}
+
+.ll-document-template-balanced .ll-document-title {
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid rgba(78, 111, 179, 0.26);
+}
+
+.ll-document-template-balanced .ll-smart-section {
+  box-shadow: 0 12px 28px rgba(94, 114, 152, 0.08);
+}
+
+.ll-document-template-executive {
+  border-top: 10px solid #3d557b;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(244, 246, 250, 0.98));
+}
+
+.ll-document-template-executive .ll-document-header {
+  text-align: center;
+}
+
+.ll-document-template-executive .ll-document-kicker {
+  color: #3d557b;
+}
+
+.ll-document-template-executive .ll-document-title {
+  display: inline-block;
+  padding: 0 1rem 0.85rem;
+  border-bottom: 2px solid rgba(61, 85, 123, 0.28);
+}
+
+.ll-document-template-executive .ll-smart-section {
+  border-radius: 0.65rem;
+  border-color: rgba(61, 85, 123, 0.16);
+}
+
+.ll-document-template-executive .ll-smart-section-title {
+  color: #3d557b;
+}
+
+.ll-document-template-minimal {
+  padding: 2.5rem 2.75rem;
+  border-top: 6px solid #60768c;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 18px 36px rgba(100, 116, 139, 0.1);
+}
+
+.ll-document-template-minimal .ll-document-kicker {
+  color: #60768c;
+}
+
+.ll-document-template-minimal .ll-document-title {
+  font-size: 1.7rem;
+}
+
+.ll-document-template-minimal .ll-smart-section {
+  border-radius: 0.85rem;
+  background: rgba(248, 250, 252, 0.9);
+  box-shadow: none;
+}
+
+.ll-document-template-minimal .ll-smart-section-title {
+  letter-spacing: 0.14em;
+  color: #45596e;
+}
+
+.ll-document-preview-shell {
+  border-radius: 1.25rem;
+  background: linear-gradient(180deg, rgba(241, 245, 249, 0.85), rgba(255, 255, 255, 0.7));
+  padding: 1rem;
+}
+
+@media (max-width: 768px) {
+  .ll-document-sheet {
+    padding: 1.5rem 1.25rem;
+    border-radius: 1rem;
+  }
+
+  .ll-document-title {
+    font-size: 1.55rem;
+  }
+}

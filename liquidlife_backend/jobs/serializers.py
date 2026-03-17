@@ -1,3 +1,4 @@
+from django.urls import reverse
 from rest_framework import serializers
 
 from .document_content import extract_document_content
@@ -13,6 +14,7 @@ class DocumentSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "doc_type",
+            "template_name",
             "content",
             "file",
             "file_url",
@@ -26,7 +28,7 @@ class DocumentSerializer(serializers.ModelSerializer):
             return None
 
         request = self.context.get("request")
-        url = obj.file.url
+        url = reverse("documents-file", kwargs={"id": obj.id})
         return request.build_absolute_uri(url) if request else url
 
     def validate_file(self, value):
@@ -90,6 +92,21 @@ class JobSerializer(serializers.ModelSerializer):
             "cover_letter",
             "resume_title",
             "cover_letter_title",
+        )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        if not request or not getattr(request, "user", None) or not request.user.is_authenticated:
+            return
+
+        self.fields["resume"].queryset = Document.objects.filter(
+            owner=request.user,
+            doc_type=Document.DocType.RESUME,
+        )
+        self.fields["cover_letter"].queryset = Document.objects.filter(
+            owner=request.user,
+            doc_type=Document.DocType.COVER_LETTER,
         )
 
     def get_resume_title(self, obj: Job) -> str | None:

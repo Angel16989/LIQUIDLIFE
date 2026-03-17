@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import NotificationBell from "@/components/NotificationBell";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { requestNotificationsRefresh } from "@/lib/notifications";
 
 type StudyEntry = {
   id: number;
@@ -59,6 +61,14 @@ export default function LearningPage() {
     }
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  }, [entries, hasLoadedFromStorage]);
+
+  useEffect(() => {
+    if (!hasLoadedFromStorage) {
+      return;
+    }
+
+    requestNotificationsRefresh();
   }, [entries, hasLoadedFromStorage]);
 
   const orderedEntries = useMemo(
@@ -150,12 +160,15 @@ export default function LearningPage() {
             <p className="text-xs uppercase tracking-[0.22em] ll-muted">Study</p>
             <h1 className="mt-2 text-3xl font-semibold">Learning Journal</h1>
           </div>
-          <Link
-            href="/"
-            className="rounded-lg border border-white/55 px-3 py-2 text-sm text-[#2b244d] transition hover:bg-white/85"
-          >
-            Back to Hub
-          </Link>
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            <Link
+              href="/"
+              className="rounded-lg border border-white/55 px-3 py-2 text-sm text-[#2b244d] transition hover:bg-white/85"
+            >
+              Back to Hub
+            </Link>
+          </div>
         </header>
 
         <section className="ll-panel p-5">

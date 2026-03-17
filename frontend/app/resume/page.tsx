@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 
@@ -142,6 +143,22 @@ export default function ResumePage() {
   return (
     <DashboardLayout title="Resume">
       <div className="space-y-6">
+        <section className="ll-panel flex flex-wrap items-center justify-between gap-4 p-5">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] ll-muted">AI Tailoring</p>
+            <h2 className="mt-2 text-xl font-semibold ll-title">Need a job-specific resume?</h2>
+            <p className="mt-2 text-sm ll-muted">
+              Open Procurement to store your profile locally, paste a job description, and generate a tailored resume.
+            </p>
+          </div>
+          <Link
+            href="/procurement"
+            className="rounded-lg bg-[#4f3f85] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
+          >
+            Open Procurement
+          </Link>
+        </section>
+
         <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Add Resume</h3>
           <form onSubmit={handleAddResume} className="mt-5 grid gap-4 md:grid-cols-2">

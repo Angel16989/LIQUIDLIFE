@@ -7,22 +7,37 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { renderAsync } from "docx-preview";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { API_BASE_URL } from "@/lib/api";
+import { getAuthToken } from "@/lib/auth";
+import {
+  DEFAULT_DOCUMENT_TEMPLATE,
+  DOCUMENT_TEMPLATE_OPTIONS,
+  getStarterDocumentContent,
+  smartFormatDocumentContent,
+  type DocumentTemplateName,
+} from "@/lib/documentTemplates";
 import {
   type ApiDocument,
+  downloadUploadedDocumentFile,
   downloadAsDocx,
   downloadAsPdf,
   fetchDocument,
+  fetchDocumentFileBlob,
+  fetchDocumentFileText,
+  getFormattedDocumentHtml,
   getDocumentFileKind,
   getEmbeddableExternalLink,
   mapApiDocument,
   type DocumentRecord,
   type DocumentType,
 } from "@/lib/documents";
+import { requestNotificationsRefresh } from "@/lib/notifications";
 
 type SaveFormState = {
   title: string;
   docType: DocumentType;
+  templateName: DocumentTemplateName;
   externalLink: string;
   file: File | null;
 };
@@ -38,6 +53,7 @@ function normalizeId(value: string | string[] | undefined): number | null {
 }
 
 export default function DocumentEditorPage() {
+  const { isChecking, isAuthenticated } = useRequireAuth();
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const mode = searchParams.get("mode");
@@ -48,6 +64,7 @@ export default function DocumentEditorPage() {
   const [form, setForm] = useState<SaveFormState>({
     title: "",
     docType: "general",
+    templateName: DEFAULT_DOCUMENT_TEMPLATE,
     externalLink: "",
     file: null,
   });
@@ -71,6 +88,10 @@ export default function DocumentEditorPage() {
   });
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     const currentDocumentId = documentId;
     if (!currentDocumentId) {
       setError("Invalid document id.");
@@ -83,20 +104,24 @@ export default function DocumentEditorPage() {
         setIsLoading(true);
         setError(null);
         const loaded = await fetchDocument(safeDocumentId);
+        const shouldSeedStarter = !loaded.content && !loaded.fileUrl && !loaded.externalLink;
+        const initialContent = shouldSeedStarter ? getStarterDocumentContent(loaded.docType, loaded.title) : loaded.content || "";
         setDocument(loaded);
         setForm({
           title: loaded.title,
           docType: loaded.docType,
+          templateName: loaded.templateName,
           externalLink: loaded.externalLink,
           file: null,
         });
-        editor?.commands.setContent(loaded.content || "");
-        setEditorContent(loaded.content || "");
+        editor?.commands.setContent(initialContent);
+        setEditorContent(initialContent);
         lastSavedSnapshotRef.current = JSON.stringify({
           title: loaded.title,
           docType: loaded.docType,
+          templateName: loaded.templateName,
           externalLink: loaded.externalLink,
-          content: loaded.content || "",
+          content: initialContent,
           fileName: "",
         });
       } catch (loadError) {
@@ -108,7 +133,7 @@ export default function DocumentEditorPage() {
     }
 
     void load();
-  }, [documentId, editor]);
+  }, [documentId, editor, isAuthenticated]);
 
   const saveDocument = useCallback(async (showError = true) => {
     if (!documentId || !editor || !document) {
@@ -118,6 +143,7 @@ export default function DocumentEditorPage() {
     const snapshot = JSON.stringify({
       title: form.title.trim(),
       docType: form.docType,
+      templateName: form.templateName,
       externalLink: form.externalLink.trim(),
       content: editorContent,
       fileName: form.file?.name ?? "",
@@ -132,6 +158,7 @@ export default function DocumentEditorPage() {
       const payload = new FormData();
       payload.append("title", form.title.trim());
       payload.append("doc_type", form.docType);
+      payload.append("template_name", form.templateName);
       payload.append("external_link", form.externalLink.trim());
       payload.append("content", editorContent);
 
@@ -139,8 +166,16 @@ export default function DocumentEditorPage() {
         payload.append("file", form.file);
       }
 
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error("Login required.");
+      }
+
       const response = await fetch(`${API_BASE_URL}/documents/${documentId}`, {
         method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         body: payload,
       });
 
@@ -161,6 +196,7 @@ export default function DocumentEditorPage() {
       setForm({
         title: saved.title,
         docType: saved.docType,
+        templateName: saved.templateName,
         externalLink: saved.externalLink,
         file: null,
       });
@@ -168,11 +204,13 @@ export default function DocumentEditorPage() {
       lastSavedSnapshotRef.current = JSON.stringify({
         title: saved.title,
         docType: saved.docType,
+        templateName: saved.templateName,
         externalLink: saved.externalLink,
         content: nextEditorContent,
         fileName: "",
       });
       setError(null);
+      requestNotificationsRefresh();
     } catch (saveError) {
       console.error(saveError);
       if (showError) {
@@ -181,7 +219,7 @@ export default function DocumentEditorPage() {
     } finally {
       setIsSaving(false);
     }
-  }, [documentId, editor, document, form.title, form.docType, form.externalLink, form.file, editorContent]);
+  }, [documentId, editor, document, form.title, form.docType, form.templateName, form.externalLink, form.file, editorContent]);
 
   useEffect(() => {
     if (!editor) {
@@ -207,9 +245,15 @@ export default function DocumentEditorPage() {
     }, 1500);
 
     return () => window.clearTimeout(timer);
-  }, [editorContent, form.title, form.docType, form.externalLink, form.file, documentId, editor, document, saveDocument]);
+  }, [editorContent, form.title, form.docType, form.templateName, form.externalLink, form.file, documentId, editor, document, saveDocument]);
 
   const shouldUseLiveContentPreview = editorContent.trim().length > 0 || (!currentFileUrl && !currentExternalLink);
+  const formattedPreviewHtml = getFormattedDocumentHtml({
+    title: form.title || document?.title || "Document",
+    docType: form.docType,
+    templateName: form.templateName,
+    htmlContent: editorContent,
+  });
 
   useEffect(() => {
     if (!documentId) {
@@ -247,27 +291,22 @@ export default function DocumentEditorPage() {
 
       const fileKind = getDocumentFileKind(currentFileUrl);
       try {
-        const response = await fetch(currentFileUrl);
-        if (!response.ok) {
-          throw new Error("Failed to load file preview.");
-        }
-
         if (fileKind === "pdf") {
-          const fileBlob = await response.blob();
+          const fileBlob = await fetchDocumentFileBlob(currentFileUrl);
           objectUrl = URL.createObjectURL(fileBlob);
           setViewerPdfUrl(objectUrl);
           return;
         }
 
         if (fileKind === "txt") {
-          const text = await response.text();
+          const text = await fetchDocumentFileText(currentFileUrl);
           setViewerText(text);
           setViewerPdfUrl(null);
           return;
         }
 
         if (fileKind === "docx") {
-          const fileBlob = await response.blob();
+          const fileBlob = await fetchDocumentFileBlob(currentFileUrl);
           setViewerPdfUrl(null);
           if (docxContainerRef.current) {
             await renderAsync(fileBlob, docxContainerRef.current);
@@ -292,6 +331,11 @@ export default function DocumentEditorPage() {
   }, [currentExternalLink, currentFileUrl, shouldUseLiveContentPreview, documentId]);
 
   return (
+    isChecking || !isAuthenticated ? (
+      <main className="ll-page flex items-center justify-center">
+        <p className="ll-muted">Checking access...</p>
+      </main>
+    ) : (
     <DashboardLayout title="Document Editor">
       <div className="space-y-6">
         {error && (
@@ -344,6 +388,23 @@ export default function DocumentEditorPage() {
                       <option value="general">General</option>
                       <option value="resume">Resume</option>
                       <option value="cover_letter">Cover Letter</option>
+                    </select>
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Template</span>
+                    <select
+                      value={form.templateName}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, templateName: event.target.value as DocumentTemplateName }))
+                      }
+                      className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                    >
+                      {DOCUMENT_TEMPLATE_OPTIONS.map((template) => (
+                        <option key={template.name} value={template.name}>
+                          {template.label}
+                        </option>
+                      ))}
                     </select>
                   </label>
 
@@ -403,6 +464,28 @@ export default function DocumentEditorPage() {
                   >
                     Ordered List
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const smartContent = smartFormatDocumentContent(form.docType, editorContent, form.title || document.title);
+                      editor.commands.setContent(smartContent);
+                      setEditorContent(smartContent);
+                    }}
+                    className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
+                  >
+                    Smart Format
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const starterContent = getStarterDocumentContent(form.docType, form.title || document.title);
+                      editor.commands.setContent(starterContent);
+                      setEditorContent(starterContent);
+                    }}
+                    className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
+                  >
+                    Apply starter layout
+                  </button>
                 </div>
 
                 <div className="mt-4 min-h-56 rounded-xl border border-zinc-300 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
@@ -421,7 +504,14 @@ export default function DocumentEditorPage() {
 
                   <button
                     type="button"
-                    onClick={() => void downloadAsPdf(form.title || document.title, editorContent)}
+                    onClick={() =>
+                      void downloadAsPdf({
+                        title: form.title || document.title,
+                        docType: form.docType,
+                        templateName: form.templateName,
+                        htmlContent: editorContent,
+                      })
+                    }
                     className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
                   >
                     Download PDF
@@ -429,7 +519,14 @@ export default function DocumentEditorPage() {
 
                   <button
                     type="button"
-                    onClick={() => void downloadAsDocx(form.title || document.title, editorContent)}
+                    onClick={() =>
+                      void downloadAsDocx({
+                        title: form.title || document.title,
+                        docType: form.docType,
+                        templateName: form.templateName,
+                        htmlContent: editorContent,
+                      })
+                    }
                     className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
                   >
                     Download DOCX
@@ -451,7 +548,7 @@ export default function DocumentEditorPage() {
                   <div>
                     <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Live Preview</h3>
                     <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                      This panel updates while you type. Uploaded files switch into the live editor after they are imported.
+                      This panel updates while you type. Template styling here is the same layout used for PDF and DOCX exports.
                     </p>
                   </div>
                   {!isViewMode && (
@@ -465,8 +562,8 @@ export default function DocumentEditorPage() {
                 </div>
                 <div className="mt-4">
                   {shouldUseLiveContentPreview ? (
-                    <article className="prose max-w-none rounded-xl border border-zinc-200 p-4 dark:prose-invert dark:border-zinc-700">
-                      <div dangerouslySetInnerHTML={{ __html: editorContent || "<p>No content yet.</p>" }} />
+                    <article className="ll-document-preview-shell overflow-x-auto rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
+                      <div dangerouslySetInnerHTML={{ __html: formattedPreviewHtml }} />
                     </article>
                   ) : document.externalLink ? (
                     <div className="space-y-3">
@@ -500,22 +597,21 @@ export default function DocumentEditorPage() {
                         ref={docxContainerRef}
                         className="min-h-[560px] overflow-auto rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
                       />
-                      <a
-                        href={document.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => void downloadUploadedDocumentFile(document)}
                         className="inline-flex rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
                       >
                         Download original DOCX
-                      </a>
+                      </button>
                     </div>
                   ) : viewerError ? (
                     <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                       {viewerError}
                     </p>
                   ) : (
-                    <article className="prose max-w-none rounded-xl border border-zinc-200 p-4 dark:prose-invert dark:border-zinc-700">
-                      <div dangerouslySetInnerHTML={{ __html: editorContent || "<p>No content yet.</p>" }} />
+                    <article className="ll-document-preview-shell overflow-x-auto rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
+                      <div dangerouslySetInnerHTML={{ __html: formattedPreviewHtml }} />
                     </article>
                   )}
                 </div>
@@ -525,5 +621,6 @@ export default function DocumentEditorPage() {
         )}
       </div>
     </DashboardLayout>
+    )
   );
 }

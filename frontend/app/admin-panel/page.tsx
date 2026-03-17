@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import NotificationBell from "@/components/NotificationBell";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { API_BASE_URL } from "@/lib/api";
 import { clearAuthToken, getAuthToken } from "@/lib/auth";
+import { requestNotificationsRefresh } from "@/lib/notifications";
 
 type Engagement = {
   total_users: number;
@@ -108,6 +110,12 @@ export default function AdminPanelPage() {
   const [activeMutationKey, setActiveMutationKey] = useState<string | null>(null);
   const [passwordInputs, setPasswordInputs] = useState<Record<number, string>>({});
   const [generatedPasswords, setGeneratedPasswords] = useState<Record<number, string>>({});
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [createUserForm, setCreateUserForm] = useState({
+    username: "",
+    email: "",
+    password: "",
+  });
 
   const loadData = useCallback(
     async (showLoader = true) => {
@@ -124,6 +132,7 @@ export default function AdminPanelPage() {
         setError(null);
         const data = await fetchAdminPanelData(token);
         setPayload(data);
+        requestNotificationsRefresh();
       } catch (loadError) {
         console.error(loadError);
         const nextError = loadError instanceof Error ? loadError.message : "Could not load admin data.";
@@ -163,6 +172,7 @@ export default function AdminPanelPage() {
 
     try {
       setError(null);
+      setSuccessMessage(null);
       setActiveMutationKey(`${decision}-${requestId}`);
       const response = await fetch(`${API_BASE_URL}/auth/authorization-requests/${requestId}/decision`, {
         method: "POST",
@@ -179,6 +189,7 @@ export default function AdminPanelPage() {
       }
 
       await loadData(false);
+      requestNotificationsRefresh();
     } catch (decisionError) {
       console.error(decisionError);
       setError(decisionError instanceof Error ? decisionError.message : "Could not update request.");
@@ -201,6 +212,7 @@ export default function AdminPanelPage() {
 
     try {
       setError(null);
+      setSuccessMessage(null);
       setActiveMutationKey(`delete-${userId}`);
       const response = await fetch(`${API_BASE_URL}/auth/users/${userId}`, {
         method: "DELETE",
@@ -215,6 +227,7 @@ export default function AdminPanelPage() {
       }
 
       await loadData(false);
+      requestNotificationsRefresh();
     } catch (deleteError) {
       console.error(deleteError);
       setError(deleteError instanceof Error ? deleteError.message : "Could not delete user.");
@@ -238,6 +251,7 @@ export default function AdminPanelPage() {
 
     try {
       setError(null);
+      setSuccessMessage(null);
       setActiveMutationKey(`password-${userId}-${generatePassword ? "auto" : "manual"}`);
       const response = await fetch(`${API_BASE_URL}/auth/users/${userId}/password`, {
         method: "POST",
@@ -261,9 +275,73 @@ export default function AdminPanelPage() {
         payload?.generated_password ? { ...current, [userId]: payload.generated_password } : current,
       );
       await loadData(false);
+      setSuccessMessage(generatePassword ? "Temporary password generated." : "Password updated successfully.");
     } catch (passwordError) {
       console.error(passwordError);
       setError(passwordError instanceof Error ? passwordError.message : "Could not update password.");
+    } finally {
+      setActiveMutationKey(null);
+    }
+  }
+
+  async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const username = createUserForm.username.trim();
+    const email = createUserForm.email.trim().toLowerCase();
+    const password = createUserForm.password;
+
+    if (!username || !email || !password) {
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      setSuccessMessage(null);
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      setError("Missing access token.");
+      setSuccessMessage(null);
+      return;
+    }
+
+    try {
+      setError(null);
+      setSuccessMessage(null);
+      setActiveMutationKey("create-user");
+      const response = await fetch(`${API_BASE_URL}/auth/users`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as unknown;
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(payload, "Failed to create user."));
+      }
+
+      setCreateUserForm({
+        username: "",
+        email: "",
+        password: "",
+      });
+      setSuccessMessage("User created and added to pending approval.");
+      await loadData(false);
+      requestNotificationsRefresh();
+    } catch (createError) {
+      console.error(createError);
+      setError(createError instanceof Error ? createError.message : "Could not create user.");
+      setSuccessMessage(null);
     } finally {
       setActiveMutationKey(null);
     }
@@ -293,7 +371,8 @@ export default function AdminPanelPage() {
             <p className="mt-2 text-sm ll-muted">Live account review, approvals, and user control.</p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <NotificationBell />
             <Link href="/dashboard" className="ll-pill-btn px-3 py-2 text-sm font-semibold">
               Dashboard
             </Link>
@@ -314,6 +393,11 @@ export default function AdminPanelPage() {
         {error && (
           <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
             {error}
+          </p>
+        )}
+        {successMessage && (
+          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            {successMessage}
           </p>
         )}
 
@@ -338,6 +422,68 @@ export default function AdminPanelPage() {
             <p className="text-xs uppercase tracking-[0.18em] ll-muted">Documents</p>
             <p className="mt-2 text-2xl font-semibold ll-title">{payload?.engagement.documents_uploaded ?? "-"}</p>
           </article>
+        </section>
+
+        <section className="ll-panel p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold ll-title">Create User</h2>
+              <p className="mt-1 text-sm ll-muted">Manually add an account. It will stay pending until you approve it.</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleCreateUser} className="mt-4 grid gap-4 md:grid-cols-3">
+            <label className="space-y-2">
+              <span className="text-sm font-medium ll-title">Username</span>
+              <input
+                value={createUserForm.username}
+                onChange={(event) =>
+                  setCreateUserForm((current) => ({ ...current, username: event.target.value }))
+                }
+                type="text"
+                required
+                className="w-full rounded-xl border border-white/60 bg-white/90 px-3 py-2 text-sm ll-title outline-none ring-[#5f4d93] transition focus:ring-2"
+                placeholder="new member username"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium ll-title">Email</span>
+              <input
+                value={createUserForm.email}
+                onChange={(event) =>
+                  setCreateUserForm((current) => ({ ...current, email: event.target.value }))
+                }
+                type="email"
+                required
+                className="w-full rounded-xl border border-white/60 bg-white/90 px-3 py-2 text-sm ll-title outline-none ring-[#5f4d93] transition focus:ring-2"
+                placeholder="member@example.com"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium ll-title">Password</span>
+              <input
+                value={createUserForm.password}
+                onChange={(event) =>
+                  setCreateUserForm((current) => ({ ...current, password: event.target.value }))
+                }
+                type="password"
+                minLength={8}
+                required
+                className="w-full rounded-xl border border-white/60 bg-white/90 px-3 py-2 text-sm ll-title outline-none ring-[#5f4d93] transition focus:ring-2"
+                placeholder="minimum 8 characters"
+              />
+            </label>
+
+            <button
+              type="submit"
+              disabled={activeMutationKey === "create-user"}
+              className="rounded-xl bg-[#4f3f85] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60 md:col-span-3 md:w-fit"
+            >
+              {activeMutationKey === "create-user" ? "Creating user..." : "Create Pending User"}
+            </button>
+          </form>
         </section>
 
         <section className="ll-panel p-6">

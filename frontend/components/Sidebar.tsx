@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { getCurrentUserMeta, subscribeToAuthTokenChanges } from "@/lib/auth";
 
 type SidebarProps = {
   isOpen: boolean;
   onClose: () => void;
 };
 
-const navItems = [
+const baseNavItems = [
   { name: "Jobs", href: "/jobs" },
   { name: "Documents", href: "/documents" },
   { name: "Resume", href: "/resume" },
@@ -17,6 +19,17 @@ const navItems = [
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const [isAdmin, setIsAdmin] = useState(() => Boolean(getCurrentUserMeta()?.isAdmin));
+
+  useEffect(
+    () => subscribeToAuthTokenChanges(() => setIsAdmin(Boolean(getCurrentUserMeta()?.isAdmin))),
+    [],
+  );
+
+  const navItems = useMemo(
+    () => (isAdmin ? baseNavItems : [...baseNavItems, { name: "Procurement", href: "/procurement" }]),
+    [isAdmin],
+  );
 
   return (
     <>

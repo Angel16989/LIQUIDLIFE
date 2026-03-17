@@ -2,7 +2,7 @@ export const AUTH_TOKEN_STORAGE_KEY = "liquid-life-access-token";
 export const AUTH_USER_STORAGE_KEY = "liquid-life-user-meta";
 const AUTH_TOKEN_CHANGED_EVENT = "liquid-life-auth-token-changed";
 
-type AuthUserMeta = {
+export type AuthUserMeta = {
   username: string;
   isAdmin?: boolean;
 };
@@ -62,6 +62,11 @@ export function clearAuthToken() {
 }
 
 export function getCurrentUsername(): string | null {
+  const userMeta = getCurrentUserMeta();
+  return userMeta?.username ?? null;
+}
+
+export function getCurrentUserMeta(): AuthUserMeta | null {
   if (typeof window === "undefined") {
     return null;
   }
@@ -73,10 +78,15 @@ export function getCurrentUsername(): string | null {
 
   try {
     const parsed = JSON.parse(raw) as AuthUserMeta;
-    return typeof parsed.username === "string" ? parsed.username : null;
+    return typeof parsed.username === "string" ? parsed : null;
   } catch {
     return null;
   }
+}
+
+export function isCurrentUserAdmin(): boolean {
+  const userMeta = getCurrentUserMeta();
+  return Boolean(userMeta?.isAdmin);
 }
 
 export function subscribeToAuthTokenChanges(onStoreChange: () => void) {

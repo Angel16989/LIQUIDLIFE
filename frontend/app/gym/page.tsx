@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import NotificationBell from "@/components/NotificationBell";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { getCurrentUsername } from "@/lib/auth";
+import { requestNotificationsRefresh } from "@/lib/notifications";
 
 type WorkoutExercise = {
   name: string;
@@ -130,6 +132,23 @@ export default function GymPage() {
   const [workoutGoal, setWorkoutGoal] = useState("");
   const [exerciseDrafts, setExerciseDrafts] = useState<Record<string, ExerciseDraft>>({});
   const [setDrafts, setSetDrafts] = useState<Record<string, SetDraft>>({});
+
+  const totalExercises = useMemo(
+    () => customWorkouts.reduce((sum, day) => sum + day.exercises.length, 0),
+    [customWorkouts],
+  );
+  const totalSets = useMemo(
+    () =>
+      customWorkouts.reduce(
+        (sum, day) => sum + day.exercises.reduce((exerciseSum, exercise) => exerciseSum + exercise.sets.length, 0),
+        0,
+      ),
+    [customWorkouts],
+  );
+
+  useEffect(() => {
+    requestNotificationsRefresh();
+  }, [customWorkouts.length, totalSets]);
 
   function handleCreateWorkoutDay(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -364,12 +383,6 @@ export default function GymPage() {
     );
   }
 
-  const totalExercises = customWorkouts.reduce((sum, day) => sum + day.exercises.length, 0);
-  const totalSets = customWorkouts.reduce(
-    (sum, day) => sum + day.exercises.reduce((exerciseSum, exercise) => exerciseSum + exercise.sets.length, 0),
-    0,
-  );
-
   return (
     <main className="ll-page px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -385,12 +398,15 @@ export default function GymPage() {
                 : "Build custom workout days, add exercises, and track every set in one place."}
             </p>
           </div>
-          <Link
-            href="/"
-            className="rounded-lg border border-white/55 px-3 py-2 text-sm text-[#2b244d] transition hover:bg-white/85"
-          >
-            Back to Hub
-          </Link>
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            <Link
+              href="/"
+              className="rounded-lg border border-white/55 px-3 py-2 text-sm text-[#2b244d] transition hover:bg-white/85"
+            >
+              Back to Hub
+            </Link>
+          </div>
         </header>
 
         {isRasikPlan ? (

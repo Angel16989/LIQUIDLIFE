@@ -42,6 +42,11 @@ export default function RegisterPage() {
       return;
     }
 
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setError(null);
@@ -108,10 +113,12 @@ export default function RegisterPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               type="password"
+              minLength={8}
               required
               className="w-full rounded-xl border border-white/60 bg-white/90 px-3 py-2 text-sm ll-title outline-none ring-[#5f4d93] transition focus:ring-2"
               placeholder="minimum 8 characters"
             />
+            <p className="text-xs ll-muted">Use at least 8 characters.</p>
           </label>
 
           <button

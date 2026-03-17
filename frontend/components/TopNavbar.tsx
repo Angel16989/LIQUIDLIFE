@@ -1,4 +1,5 @@
 import Link from "next/link";
+import NotificationBell from "@/components/NotificationBell";
 
 type TopNavbarProps = {
   title: string;
@@ -34,6 +35,7 @@ export default function TopNavbar({ title, onMenuClick }: TopNavbarProps) {
           <span className="hidden rounded-full border border-white/60 bg-white/70 px-3 py-1 text-xs text-[#5d5a79] sm:inline-flex">
             Synced now
           </span>
+          <NotificationBell />
           <Link
             href="/"
             aria-label="Go to main dashboard"

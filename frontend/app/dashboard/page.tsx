@@ -9,7 +9,7 @@ import { clearAuthToken, getAuthToken } from "@/lib/auth";
 type DashboardLink = {
   title: string;
   description: string;
-  href: "/jobs" | "/gym" | "/learning" | "/admin-panel";
+  href: "/jobs" | "/gym" | "/learning" | "/admin-panel" | "/procurement";
 };
 
 const links: DashboardLink[] = [
@@ -27,6 +27,11 @@ const links: DashboardLink[] = [
     title: "Learning",
     description: "Keep your study notes and learning momentum daily.",
     href: "/learning",
+  },
+  {
+    title: "Procurement",
+    description: "Store your career profile locally and generate tailored resumes and cover letters.",
+    href: "/procurement",
   },
 ];
 
@@ -64,7 +69,14 @@ export default function DashboardPage() {
   }
 
   const visibleLinks = isAdmin
-    ? [...links, { title: "Admin Panel", description: "Review engagement and account authorization requests.", href: "/admin-panel" as const }]
+    ? [
+        ...links.filter((item) => item.href !== "/procurement"),
+        {
+          title: "Admin Panel",
+          description: "Review engagement and account authorization requests.",
+          href: "/admin-panel" as const,
+        },
+      ]
     : links;
 
   return (

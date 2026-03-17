@@ -20,6 +20,7 @@ from .services import (
 )
 from .serializers import (
     AccountAuthorizationRequestSerializer,
+    AdminCreateUserSerializer,
     AdminSetPasswordSerializer,
     AdminUserSerializer,
     ForgotPasswordSerializer,
@@ -260,6 +261,24 @@ class AdminEngagementAPIView(APIView):
             "users": users_data,
         }
         return Response(data, status=status.HTTP_200_OK)
+
+
+class AdminUserCreateAPIView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        serializer = AdminCreateUserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        return Response(
+            {
+                "detail": "User created. Approval is still required before login.",
+                "user": AdminUserSerializer(user).data,
+                "authorization_request": AccountAuthorizationRequestSerializer(user.authorization_request).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class AuthorizationRequestDecisionAPIView(APIView):
