@@ -30,7 +30,7 @@ from .serializers import (
 )
 
 ADMIN_USERNAME = getattr(settings, "LIQUIDLIFE_ADMIN_USERNAME", "LIQUIDLIFEADMIN")
-ADMIN_PASSWORD = getattr(settings, "LIQUIDLIFE_ADMIN_PASSWORD", "WELCOME@123")
+ADMIN_PASSWORD = getattr(settings, "LIQUIDLIFE_ADMIN_PASSWORD", "")
 FRONTEND_BASE_URL = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:3000")
 
 
@@ -66,7 +66,7 @@ class LoginAPIView(APIView):
         username = serializer.validated_data["username"]
         password = serializer.validated_data["password"]
 
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        if ADMIN_PASSWORD and username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             admin_user, _ = User.objects.get_or_create(
                 username=ADMIN_USERNAME,
                 defaults={"is_staff": True, "is_superuser": True, "is_active": True},

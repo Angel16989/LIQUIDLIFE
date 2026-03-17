@@ -64,7 +64,6 @@ export type NotificationPreferences = {
 export const NOTIFICATIONS_REFRESH_EVENT = "liquid-life-notifications-refresh";
 
 const STUDY_STORAGE_KEY = "liquid-life-study-entries";
-const ADMIN_USERNAME = "LIQUIDLIFEADMIN";
 const DEFAULT_PREFERENCES: NotificationPreferences = {
   enabled: true,
   browserEnabled: false,
@@ -95,10 +94,6 @@ function getAgeInDays(value: string): number | null {
 
   const diff = Date.now() - timestamp;
   return Math.floor(diff / (1000 * 60 * 60 * 24));
-}
-
-function isAdmin(username: string): boolean {
-  return username.trim().toUpperCase() === ADMIN_USERNAME;
 }
 
 function getGymStorageKey(username: string): string {
@@ -176,13 +171,14 @@ export function subscribeToNotificationRefresh(onRefresh: () => void) {
 export async function collectTaskNotifications({
   username,
   token,
+  isAdmin,
 }: {
   username: string;
   token: string | null;
+  isAdmin: boolean;
 }): Promise<TaskNotification[]> {
   const notifications: TaskNotification[] = [];
   const normalizedUsername = username.trim() || "member";
-  const isAdminUser = isAdmin(normalizedUsername);
 
   const jobsPromise = token
     ? fetch(`${API_BASE_URL}/jobs`, {
@@ -203,7 +199,7 @@ export async function collectTaskNotifications({
     : null;
 
   const adminPromise =
-    token && isAdminUser
+    token && isAdmin
       ? fetch(`${API_BASE_URL}/auth/admin/engagement`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -325,7 +321,7 @@ export async function collectTaskNotifications({
     }
   }
 
-  if (!isAdminUser) {
+  if (!isAdmin) {
     const workouts = readJsonFromStorage<CustomWorkoutDay[]>(getGymStorageKey(normalizedUsername), []);
     const totalSets = workouts.reduce(
       (sum, day) => sum + day.exercises.reduce((exerciseSum, exercise) => exerciseSum + exercise.sets.length, 0),

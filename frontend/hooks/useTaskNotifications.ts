@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getAuthToken, getCurrentUsername, subscribeToAuthTokenChanges } from "@/lib/auth";
+import { getAuthToken, getCurrentUserMeta, getCurrentUsername, subscribeToAuthTokenChanges } from "@/lib/auth";
 import {
   collectTaskNotifications,
   getDeliveredNotificationIds,
@@ -26,6 +26,7 @@ function getBrowserPermission(): BrowserPermissionState {
 
 export function useTaskNotifications() {
   const [username, setUsername] = useState(() => getCurrentUsername() ?? "member");
+  const [isAdmin, setIsAdmin] = useState(() => Boolean(getCurrentUserMeta()?.isAdmin));
   const [preferences, setPreferences] = useState<NotificationPreferences>(() =>
     getStoredNotificationPreferences(getCurrentUsername() ?? "member"),
   );
@@ -42,6 +43,7 @@ export function useTaskNotifications() {
       const nextNotifications = await collectTaskNotifications({
         username: normalizedUsername,
         token: getAuthToken(),
+        isAdmin,
       });
 
       if (isMountedRef.current) {
@@ -57,7 +59,7 @@ export function useTaskNotifications() {
         setIsRefreshing(false);
       }
     }
-  }, [normalizedUsername]);
+  }, [isAdmin, normalizedUsername]);
 
   const persistPreferences = useCallback(
     (nextPreferences: NotificationPreferences) => {
@@ -123,6 +125,7 @@ export function useTaskNotifications() {
   useEffect(() => {
     const syncAuthState = () => {
       setUsername(getCurrentUsername() ?? "member");
+      setIsAdmin(Boolean(getCurrentUserMeta()?.isAdmin));
       setBrowserPermission(getBrowserPermission());
     };
 

@@ -4,6 +4,41 @@ $Script:RootDir = Split-Path -Parent $PSScriptRoot
 $Script:FrontendDir = Join-Path $Script:RootDir 'frontend'
 $Script:BackendDir = Join-Path $Script:RootDir 'liquidlife_backend'
 
+function Import-EnvFile {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if (-not (Test-Path $Path)) {
+        return
+    }
+
+    foreach ($rawLine in Get-Content -Path $Path) {
+        $line = $rawLine.Trim()
+        if (-not $line -or $line.StartsWith('#') -or -not $line.Contains('=')) {
+            continue
+        }
+
+        $parts = $line.Split('=', 2)
+        $key = $parts[0].Trim()
+        $value = $parts[1].Trim()
+
+        if (-not $key) {
+            continue
+        }
+
+        if (
+            ($value.StartsWith('"') -and $value.EndsWith('"')) -or
+            ($value.StartsWith("'") -and $value.EndsWith("'"))
+        ) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+
+        [System.Environment]::SetEnvironmentVariable($key, $value, 'Process')
+    }
+}
+
+Import-EnvFile -Path (Join-Path $Script:RootDir '.env')
+Import-EnvFile -Path (Join-Path $Script:BackendDir '.env')
+
 function Write-Step {
     param([string]$Message)
     Write-Host $Message

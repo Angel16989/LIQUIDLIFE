@@ -28,18 +28,24 @@ What this does automatically:
 - Starts Next.js on `localhost:3000`
 - Opens your browser to `http://localhost:3000`
 
-## OpenAI Setup For Procurement
+## Environment Setup
 
-Put your OpenAI key in a `.env` file at the repo root or in `liquidlife_backend/.env`.
+Create a `.env` file at the repo root and use [.env.example](.env.example) as the template.
 
-Use [.env.example](.env.example) as the template:
+Minimum local dev values:
 
 ```env
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+SECRET_KEY=replace_with_a_long_random_secret
+DEBUG=True
+ALLOWED_HOSTS=127.0.0.1,localhost
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/liquidlife
 OPENAI_API_KEY=your_openai_api_key_here
 OPENAI_MODEL=gpt-4o-mini
+LIQUIDLIFE_ADMIN_PASSWORD=change_me_admin_password
 ```
 
-Then restart the backend or rerun the dev script.
+The local startup scripts load this root `.env` file for both Django and Next.js.
 
 Windows-specific notes are also in [WINDOWS.md](WINDOWS.md).
 
