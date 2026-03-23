@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/lib/api";
-import { getAuthToken } from "@/lib/auth";
+import { authFetch } from "@/lib/auth";
+import type { ResumeSectionTemplateConfig } from "@/lib/documentTemplates";
 
 export type ProcurementProfile = {
   fullName: string;
@@ -34,8 +35,14 @@ export type GeneratedDocumentPayload = {
   content: string;
   doc_type: "resume" | "cover_letter";
   template_name: "balanced" | "executive" | "minimal";
+  template_config: ResumeSectionTemplateConfig | Record<string, never>;
   highlights?: string[];
   keywords_targeted?: string[];
+};
+
+export type GeneratedApplicationPairPayload = {
+  resume: GeneratedDocumentPayload;
+  cover_letter: GeneratedDocumentPayload;
 };
 
 export type AtsReviewPayload = {
@@ -78,14 +85,6 @@ type EncryptedProfileEnvelope = {
 
 const PROCUREMENT_KEY_DB_NAME = "liquid-life-secure-store";
 const PROCUREMENT_KEY_STORE_NAME = "procurement-keys";
-
-function getTokenOrThrow(): string {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error("Login required. Please login again.");
-  }
-  return token;
-}
 
 export function getProcurementProfileStorageKey(username: string) {
   return `liquid-life-procurement-profile-${username.toLowerCase()}`;
@@ -261,11 +260,9 @@ export async function saveStoredProcurementProfile(username: string, profile: Pr
 }
 
 async function fetchProcurement<T>(path: string, body?: Record<string, unknown>, method = "GET"): Promise<T> {
-  const token = getTokenOrThrow();
-  const response = await fetch(`${API_BASE_URL}/procurement/${path}`, {
+  const response = await authFetch(`${API_BASE_URL}/procurement/${path}`, {
     method,
     headers: {
-      Authorization: `Bearer ${token}`,
       ...(body ? { "Content-Type": "application/json" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -283,6 +280,10 @@ export async function fetchProcurementStatus() {
   return fetchProcurement<ProcurementStatus>("status");
 }
 
+export async function generateApplicationPair(body: Record<string, unknown>) {
+  return fetchProcurement<GeneratedApplicationPairPayload>("generate-pair", body, "POST");
+}
+
 export async function generateCoverLetter(body: Record<string, unknown>) {
   return fetchProcurement<GeneratedDocumentPayload>("cover-letter", body, "POST");
 }
@@ -296,16 +297,16 @@ export async function reviewResumeAts(body: Record<string, unknown>) {
 }
 
 export async function saveGeneratedDocument(document: GeneratedDocumentPayload) {
-  const response = await fetch(`${API_BASE_URL}/documents`, {
+  const response = await authFetch(`${API_BASE_URL}/documents`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${getTokenOrThrow()}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       title: document.title,
       doc_type: document.doc_type,
       template_name: document.template_name,
+      template_config: document.template_config,
       content: document.content,
       external_link: "",
     }),

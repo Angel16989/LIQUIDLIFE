@@ -4,9 +4,10 @@ from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from accounts.permissions import IsVerifiedAccountOrAdmin
 
 from .document_content import ensure_document_content
 from .models import Document, Job
@@ -14,7 +15,7 @@ from .serializers import DocumentSerializer, JobSerializer
 
 
 class DocumentListCreateAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsVerifiedAccountOrAdmin]
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get(self, request):
@@ -30,7 +31,7 @@ class DocumentListCreateAPIView(APIView):
 
 
 class DocumentDetailAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsVerifiedAccountOrAdmin]
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get(self, request, id: int):
@@ -53,7 +54,7 @@ class DocumentDetailAPIView(APIView):
 
 
 class DocumentFileAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsVerifiedAccountOrAdmin]
 
     def get(self, request, id: int):
         document = get_object_or_404(Document, id=id, owner=request.user)
@@ -67,7 +68,7 @@ class DocumentFileAPIView(APIView):
 
 
 class JobListCreateAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsVerifiedAccountOrAdmin]
 
     def get(self, request):
         jobs = Job.objects.select_related("resume", "cover_letter").filter(owner=request.user).order_by("-application_date", "-id")
@@ -82,7 +83,7 @@ class JobListCreateAPIView(APIView):
 
 
 class JobUpdateDeleteAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsVerifiedAccountOrAdmin]
 
     def put(self, request, id: int):
         job = get_object_or_404(Job.objects.select_related("resume", "cover_letter"), id=id, owner=request.user)

@@ -15,15 +15,18 @@ import {
 } from "docx";
 import { jsPDF } from "jspdf";
 import { API_BASE_URL } from "@/lib/api";
-import { getAuthToken } from "@/lib/auth";
+import { authFetch } from "@/lib/auth";
 import {
   DEFAULT_DOCUMENT_TEMPLATE,
   ensureDocumentBodyContent,
   getDocumentTypeLabel,
   normalizeDocumentContentInput,
+  normalizeDocumentTemplateConfig,
   normalizeDocumentTemplateName,
+  renderDocumentBodyPreviewHtml,
   renderDocumentTemplateHtml,
   type DocumentTemplateName,
+  type ResumeSectionTemplateConfig,
 } from "@/lib/documentTemplates";
 
 export type DocumentType = "general" | "resume" | "cover_letter";
@@ -33,6 +36,7 @@ export type DocumentRecord = {
   title: string;
   docType: DocumentType;
   templateName: DocumentTemplateName;
+  templateConfig: ResumeSectionTemplateConfig;
   content: string;
   fileUrl: string | null;
   externalLink: string;
@@ -47,6 +51,7 @@ export type ApiDocument = {
   title: string;
   doc_type: DocumentType;
   template_name?: string | null;
+  template_config?: unknown;
   content: string;
   file_url: string | null;
   external_link: string;
@@ -58,6 +63,7 @@ type ExportDocumentOptions = {
   title: string;
   docType: DocumentType;
   templateName: DocumentTemplateName;
+  templateConfig: ResumeSectionTemplateConfig;
   htmlContent: string;
 };
 
@@ -95,44 +101,18 @@ const DOCX_TEMPLATE_CONFIGS: Record<DocumentTemplateName, DocxTemplateConfig> = 
   },
 };
 
-function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
-  const normalized: Record<string, string> = {};
-  if (!headers) {
-    return normalized;
-  }
-
-  new Headers(headers).forEach((value, key) => {
-    normalized[key] = value;
-  });
-  return normalized;
-}
-
-function getDocumentAuthHeaders(headers?: HeadersInit): HeadersInit {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error("Login required. Please login again.");
-  }
-
-  return {
-    ...normalizeHeaders(headers),
-    Authorization: `Bearer ${token}`,
-  };
-}
-
 async function fetchProtectedDocumentResource(input: RequestInfo | URL, init?: RequestInit) {
-  return fetch(input, {
-    ...init,
-    headers: getDocumentAuthHeaders(init?.headers),
-    cache: init?.cache ?? "no-store",
-  });
+  return authFetch(input, init);
 }
 
 export function mapApiDocument(item: ApiDocument): DocumentRecord {
+  const templateName = normalizeDocumentTemplateName(item.template_name);
   return {
     id: item.id,
     title: item.title,
     docType: item.doc_type,
-    templateName: normalizeDocumentTemplateName(item.template_name),
+    templateName,
+    templateConfig: normalizeDocumentTemplateConfig(item.template_config, templateName),
     content: item.content || "",
     fileUrl: item.file_url || null,
     externalLink: item.external_link || "",
@@ -245,12 +225,14 @@ export function getFormattedDocumentHtml({
   title,
   docType,
   templateName,
+  templateConfig,
   htmlContent,
 }: ExportDocumentOptions) {
   return renderDocumentTemplateHtml({
     title,
     docType,
     templateName,
+    templateConfig,
     content: ensureDocumentBodyContent(docType, htmlContent, title),
   });
 }
@@ -283,6 +265,7 @@ export async function downloadAsPdf(options: ExportDocumentOptions) {
   const normalizedOptions = {
     ...options,
     templateName: options.templateName || DEFAULT_DOCUMENT_TEMPLATE,
+    templateConfig: normalizeDocumentTemplateConfig(options.templateConfig, options.templateName || DEFAULT_DOCUMENT_TEMPLATE),
     htmlContent: ensureDocumentBodyContent(options.docType, options.htmlContent, options.title),
   };
 
@@ -610,7 +593,13 @@ function createDocxHeaderParagraphs(options: ExportDocumentOptions): Paragraph[]
 }
 
 export async function downloadAsDocx(options: ExportDocumentOptions) {
-  const normalizedHtml = ensureDocumentBodyContent(options.docType, options.htmlContent, options.title);
+  const normalizedHtml = renderDocumentBodyPreviewHtml(
+    options.docType,
+    ensureDocumentBodyContent(options.docType, options.htmlContent, options.title),
+    options.title,
+    options.templateName,
+    options.templateConfig,
+  );
   const paragraphs = [
     ...createDocxHeaderParagraphs(options),
     ...htmlToDocxParagraphs(normalizedHtml),

@@ -96,6 +96,7 @@ class AdminSetPasswordSerializer(serializers.Serializer):
         error_messages={"min_length": "Password must be at least 8 characters."},
     )
     generate_password = serializers.BooleanField(required=False, default=False)
+    require_password_change = serializers.BooleanField(required=False, default=True)
 
     def validate(self, attrs):
         password = attrs.get("password", "")
@@ -108,6 +109,61 @@ class AdminSetPasswordSerializer(serializers.Serializer):
             validate_password(password)
 
         return attrs
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        error_messages={"min_length": "Password must be at least 8 characters."},
+    )
+    confirm_password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        error_messages={"min_length": "Password confirmation must be at least 8 characters."},
+    )
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
+        validate_password(attrs["password"])
+        return attrs
+
+
+class SendEmailVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=False, allow_blank=True)
+
+    def validate_email(self, value: str) -> str:
+        return value.strip().lower()
+
+
+class PhoneVerificationStartSerializer(serializers.Serializer):
+    phone_number = serializers.CharField(max_length=32)
+
+    def validate_phone_number(self, value: str) -> str:
+        normalized = value.strip().replace(" ", "")
+        if not normalized.startswith("+") or not normalized[1:].isdigit() or len(normalized) < 8 or len(normalized) > 16:
+            raise serializers.ValidationError("Use a valid phone number in international format, for example +61400111222.")
+        return normalized
+
+
+class PhoneVerificationCheckSerializer(PhoneVerificationStartSerializer):
+    code = serializers.CharField(max_length=10)
+
+    def validate_code(self, value: str) -> str:
+        normalized = value.strip()
+        if not normalized.isdigit() or len(normalized) < 4 or len(normalized) > 10:
+            raise serializers.ValidationError("Enter the SMS verification code.")
+        return normalized
+
+
+class VerificationStatusSerializer(serializers.Serializer):
+    email = serializers.EmailField(allow_blank=True)
+    email_verified = serializers.BooleanField()
+    phone_number = serializers.CharField(allow_blank=True)
+    phone_verified = serializers.BooleanField()
+    phone_verification_configured = serializers.BooleanField()
 
 
 class AccountAuthorizationRequestSerializer(serializers.ModelSerializer):
@@ -134,6 +190,10 @@ class AdminUserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField()
     authorization_status = serializers.SerializerMethodField()
     authorization_request_id = serializers.SerializerMethodField()
+    must_change_password = serializers.SerializerMethodField()
+    email_verified = serializers.SerializerMethodField()
+    phone_number = serializers.SerializerMethodField()
+    phone_verified = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -147,6 +207,10 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "last_login",
             "authorization_status",
             "authorization_request_id",
+            "must_change_password",
+            "email_verified",
+            "phone_number",
+            "phone_verified",
         )
 
     def get_authorization_status(self, obj: User) -> str:
@@ -160,6 +224,22 @@ class AdminUserSerializer(serializers.ModelSerializer):
     def get_authorization_request_id(self, obj: User) -> int | None:
         auth_request = getattr(obj, "authorization_request", None)
         return auth_request.id if auth_request else None
+
+    def get_must_change_password(self, obj: User) -> bool:
+        security_state = getattr(obj, "security_state", None)
+        return bool(security_state and security_state.must_change_password)
+
+    def get_email_verified(self, obj: User) -> bool:
+        security_state = getattr(obj, "security_state", None)
+        return bool(security_state and security_state.email_verified_at)
+
+    def get_phone_number(self, obj: User) -> str:
+        security_state = getattr(obj, "security_state", None)
+        return security_state.phone_number if security_state and security_state.phone_number else ""
+
+    def get_phone_verified(self, obj: User) -> bool:
+        security_state = getattr(obj, "security_state", None)
+        return bool(security_state and security_state.phone_verified_at)
 
 
 class PasswordResetRequestSerializer(serializers.ModelSerializer):

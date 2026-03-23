@@ -4,19 +4,26 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import ResumeSectionStyleFields from "@/components/ResumeSectionStyleFields";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
-import { fetchDocuments, type DocumentRecord } from "@/lib/documents";
+import styles from "./procurement.module.css";
+import { fetchDocuments, getFormattedDocumentHtml, type DocumentRecord } from "@/lib/documents";
 import { getCurrentUserMeta, subscribeToAuthTokenChanges } from "@/lib/auth";
+import {
+  getDefaultResumeSectionTemplateConfig,
+  type DocumentTemplateName,
+  type ResumeSectionTemplateConfig,
+} from "@/lib/documentTemplates";
 import {
   DEFAULT_PROCUREMENT_PROFILE,
   fetchProcurementStatus,
-  generateCoverLetter,
-  generateResume,
+  generateApplicationPair,
   loadStoredProcurementProfile,
   reviewResumeAts,
   saveGeneratedDocument,
   saveStoredProcurementProfile,
   type AtsReviewPayload,
+  type GeneratedApplicationPairPayload,
   type GeneratedDocumentPayload,
   type ProcurementProfile,
   type ProcurementStatus,
@@ -25,9 +32,26 @@ import {
 type ToneOption = "professional" | "warm" | "direct";
 
 const toneOptions: ToneOption[] = ["professional", "warm", "direct"];
+const resumeStyleOptions: Array<{ value: DocumentTemplateName; label: string; description: string }> = [
+  {
+    value: "balanced",
+    label: "Feature Stack",
+    description: "Bold one-column layout with strong summary and experience cards.",
+  },
+  {
+    value: "executive",
+    label: "Sidebar Pro",
+    description: "Two-column layout with a left rail for skills and education.",
+  },
+  {
+    value: "minimal",
+    label: "Signal Compact",
+    description: "Sharper modern layout with tighter blocks and faster scanning.",
+  },
+];
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <span className="text-sm font-medium ll-title">{children}</span>;
+  return <span className={`${styles.fieldLabel} text-sm font-medium ll-title`}>{children}</span>;
 }
 
 function ProfileInput({
@@ -42,14 +66,14 @@ function ProfileInput({
   placeholder: string;
 }) {
   return (
-    <label className="space-y-2">
+    <label className={`${styles.fieldShell} space-y-2`}>
       <FieldLabel>{label}</FieldLabel>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
         type="text"
         placeholder={placeholder}
-        className="w-full rounded-xl border border-white/55 bg-white/92 px-3 py-2 text-sm ll-title outline-none ring-[#5f4d93] transition focus:ring-2"
+        className={`${styles.inputSurface} w-full px-3 py-2 text-sm ll-title outline-none transition focus:ring-2`}
       />
     </label>
   );
@@ -69,14 +93,14 @@ function ProfileTextarea({
   rows?: number;
 }) {
   return (
-    <label className="space-y-2">
+    <label className={`${styles.fieldShell} space-y-2`}>
       <FieldLabel>{label}</FieldLabel>
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-white/55 bg-white/92 px-3 py-2 text-sm ll-title outline-none ring-[#5f4d93] transition focus:ring-2"
+        className={`${styles.inputSurface} w-full px-3 py-2 text-sm ll-title outline-none transition focus:ring-2`}
       />
     </label>
   );
@@ -85,19 +109,21 @@ function ProfileTextarea({
 function GeneratedPreview({
   label,
   result,
+  renderedHtml,
   onSave,
   saveLabel,
   isSaving,
 }: {
   label: string;
   result: GeneratedDocumentPayload | null;
+  renderedHtml: string;
   onSave: () => Promise<void>;
   saveLabel: string;
   isSaving: boolean;
 }) {
   if (!result) {
     return (
-      <article className="ll-panel-soft p-5">
+      <article className={`${styles.previewCard} ll-panel-soft p-5`}>
         <p className="text-sm font-semibold ll-title">{label}</p>
         <p className="mt-3 text-sm ll-muted">No generated draft yet.</p>
       </article>
@@ -105,7 +131,7 @@ function GeneratedPreview({
   }
 
   return (
-    <article className="ll-panel-soft p-5">
+    <article className={`${styles.previewCard} ll-panel-soft p-5`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold ll-title">{label}</p>
@@ -115,15 +141,15 @@ function GeneratedPreview({
           type="button"
           onClick={() => void onSave()}
           disabled={isSaving}
-          className="rounded-lg bg-[#4f3f85] px-3 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+          className={`${styles.primaryButton} px-3 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70`}
         >
           {isSaving ? "Saving..." : saveLabel}
         </button>
       </div>
 
       <div
-        className="prose prose-sm mt-4 max-w-none rounded-xl border border-white/45 bg-white/90 p-4 text-[#23324a]"
-        dangerouslySetInnerHTML={{ __html: result.content }}
+        className={`${styles.previewBody} mt-4 p-4 text-[#23324a]`}
+        dangerouslySetInnerHTML={{ __html: renderedHtml }}
       />
 
       {result.highlights && result.highlights.length > 0 && (
@@ -131,7 +157,7 @@ function GeneratedPreview({
           <p className="text-xs font-semibold uppercase tracking-[0.18em] ll-muted">Key Matches</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {result.highlights.map((item) => (
-              <span key={item} className="rounded-full border border-white/55 bg-white/95 px-3 py-1 text-xs ll-title">
+              <span key={item} className={`${styles.signalPill} rounded-full px-3 py-1 text-xs ll-title`}>
                 {item}
               </span>
             ))}
@@ -144,7 +170,7 @@ function GeneratedPreview({
           <p className="text-xs font-semibold uppercase tracking-[0.18em] ll-muted">Target Keywords</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {result.keywords_targeted.map((item) => (
-              <span key={item} className="rounded-full border border-white/55 bg-white/95 px-3 py-1 text-xs ll-title">
+              <span key={item} className={`${styles.signalPill} rounded-full px-3 py-1 text-xs ll-title`}>
                 {item}
               </span>
             ))}
@@ -166,6 +192,10 @@ export default function ProcurementPage() {
   const [companyName, setCompanyName] = useState("");
   const [targetRole, setTargetRole] = useState("");
   const [tone, setTone] = useState<ToneOption>("professional");
+  const [resumeStyle, setResumeStyle] = useState<DocumentTemplateName>("balanced");
+  const [resumeTemplateConfig, setResumeTemplateConfig] = useState<ResumeSectionTemplateConfig>(
+    getDefaultResumeSectionTemplateConfig("balanced"),
+  );
   const [jobDescription, setJobDescription] = useState("");
   const [coverLetterResult, setCoverLetterResult] = useState<GeneratedDocumentPayload | null>(null);
   const [resumeResult, setResumeResult] = useState<GeneratedDocumentPayload | null>(null);
@@ -173,8 +203,7 @@ export default function ProcurementPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
-  const [isGeneratingResume, setIsGeneratingResume] = useState(false);
+  const [isGeneratingDocuments, setIsGeneratingDocuments] = useState(false);
   const [isRunningAts, setIsRunningAts] = useState(false);
   const [isSavingCoverLetter, setIsSavingCoverLetter] = useState(false);
   const [isSavingResume, setIsSavingResume] = useState(false);
@@ -286,10 +315,40 @@ export default function ProcurementPage() {
       company_name: companyName,
       target_role: targetRole,
       tone,
+      template_name: resumeStyle,
+      template_config: resumeTemplateConfig,
     };
   }
 
-  async function handleGenerateCoverLetter(event: FormEvent<HTMLFormElement>) {
+  const renderedCoverLetterHtml = useMemo(() => {
+    if (!coverLetterResult) {
+      return "";
+    }
+
+    return getFormattedDocumentHtml({
+      title: coverLetterResult.title,
+      docType: coverLetterResult.doc_type,
+      templateName: coverLetterResult.template_name,
+      templateConfig: getDefaultResumeSectionTemplateConfig(coverLetterResult.template_name),
+      htmlContent: coverLetterResult.content,
+    });
+  }, [coverLetterResult]);
+
+  const renderedResumeHtml = useMemo(() => {
+    if (!resumeResult) {
+      return "";
+    }
+
+    return getFormattedDocumentHtml({
+      title: resumeResult.title,
+      docType: resumeResult.doc_type,
+      templateName: resumeResult.template_name,
+      templateConfig: (resumeResult.template_config as ResumeSectionTemplateConfig) || resumeTemplateConfig,
+      htmlContent: resumeResult.content,
+    });
+  }, [resumeResult, resumeTemplateConfig]);
+
+  async function handleGenerateApplicationPair(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!jobDescription.trim()) {
       setError("Add the job description first.");
@@ -297,36 +356,17 @@ export default function ProcurementPage() {
     }
 
     try {
-      setIsGeneratingCoverLetter(true);
+      setIsGeneratingDocuments(true);
       setError(null);
       setSuccess(null);
-      const payload = await generateCoverLetter(buildGenerationPayload());
-      setCoverLetterResult(payload);
+      const payload: GeneratedApplicationPairPayload = await generateApplicationPair(buildGenerationPayload());
+      setCoverLetterResult(payload.cover_letter);
+      setResumeResult(payload.resume);
     } catch (submitError) {
       console.error(submitError);
-      setError(submitError instanceof Error ? submitError.message : "Failed to generate cover letter.");
+      setError(submitError instanceof Error ? submitError.message : "Failed to generate resume and cover letter.");
     } finally {
-      setIsGeneratingCoverLetter(false);
-    }
-  }
-
-  async function handleGenerateResume() {
-    if (!jobDescription.trim()) {
-      setError("Add the job description first.");
-      return;
-    }
-
-    try {
-      setIsGeneratingResume(true);
-      setError(null);
-      setSuccess(null);
-      const payload = await generateResume(buildGenerationPayload());
-      setResumeResult(payload);
-    } catch (submitError) {
-      console.error(submitError);
-      setError(submitError instanceof Error ? submitError.message : "Failed to generate resume.");
-    } finally {
-      setIsGeneratingResume(false);
+      setIsGeneratingDocuments(false);
     }
   }
 
@@ -386,7 +426,7 @@ export default function ProcurementPage() {
   if (!procurementUnlocked) {
     return (
       <DashboardLayout title="Procurement">
-        <section className="ll-panel p-6">
+        <section className={`${styles.heroCard} ll-panel p-6`}>
           <p className="text-xs uppercase tracking-[0.22em] ll-muted">Procurement</p>
           <h1 className="mt-2 text-3xl font-semibold ll-title">This workspace is for approved member accounts.</h1>
           <p className="mt-3 text-sm ll-muted">
@@ -402,8 +442,8 @@ export default function ProcurementPage() {
 
   return (
     <DashboardLayout title="Procurement">
-      <div className="space-y-6">
-        <header className="ll-panel flex flex-wrap items-start justify-between gap-4 p-6">
+      <div className={`${styles.stage} space-y-6`}>
+        <header className={`${styles.heroCard} ll-panel flex flex-wrap items-start justify-between gap-4 p-6`}>
           <div>
             <p className="text-xs uppercase tracking-[0.24em] ll-muted">Procurement</p>
             <h1 className="mt-2 text-3xl font-semibold ll-title">Personal knowledge, AI tailoring, and ATS review</h1>
@@ -413,7 +453,7 @@ export default function ProcurementPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-white/55 bg-white/90 px-4 py-3 text-sm ll-title">
+          <div className={`${styles.floatingStatus} px-4 py-3 text-sm ll-title`}>
             <p>Profile owner: <strong>{userMeta?.username}</strong></p>
             <p className="mt-1 ll-muted">
               AI: {status?.ai_configured ? `${status.provider} / ${status.model}` : "Not configured yet"}
@@ -421,11 +461,38 @@ export default function ProcurementPage() {
           </div>
         </header>
 
-        {error && <p className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
-        {success && !error && <p className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</p>}
+        <section className={styles.warningRack}>
+          <article className={styles.warningCard}>
+            <p className={styles.warningEyebrow}>AI Disclaimer</p>
+            <h2 className="mt-2 text-lg font-semibold ll-title">This is not 100% reliable</h2>
+            <p className="mt-2 text-sm ll-muted">
+              Always review, edit, and verify your resume and cover letter before uploading, sending, or applying anywhere.
+            </p>
+          </article>
+
+          <article className={styles.warningCard}>
+            <p className={styles.warningEyebrow}>Input Quality Warning</p>
+            <h2 className="mt-2 text-lg font-semibold ll-title">Your output depends on your data</h2>
+            <p className="mt-2 text-sm ll-muted">
+              The quality of the resume depends heavily on the quality of the details you enter here. Add accurate, reliable,
+              and detailed information for stronger results.
+            </p>
+          </article>
+
+          <article className={styles.warningCard}>
+            <p className={styles.warningEyebrow}>Submission Warning</p>
+            <h2 className="mt-2 text-lg font-semibold ll-title">Do not send blind</h2>
+            <p className="mt-2 text-sm ll-muted">
+              Generated wording, metrics, and formatting can still need manual cleanup. Check every claim, date, and keyword before use.
+            </p>
+          </article>
+        </section>
+
+        {error && <p className={`${styles.alertError} px-4 py-3 text-sm text-rose-700`}>{error}</p>}
+        {success && !error && <p className={`${styles.alertSuccess} px-4 py-3 text-sm text-emerald-700`}>{success}</p>}
 
         {status && !status.ai_configured && !isLoading && (
-          <section className="ll-panel p-5">
+          <section className={`${styles.infoPanel} ll-panel p-5`}>
             <p className="text-sm font-semibold ll-title">OpenAI is not configured yet.</p>
             <p className="mt-2 text-sm ll-muted">
               ATS review still works. For AI cover-letter and resume generation, add `OPENAI_API_KEY` to the Django backend environment.
@@ -434,13 +501,13 @@ export default function ProcurementPage() {
         )}
 
         <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <article className="ll-panel p-6">
+          <article className={`${styles.depthPanel} ll-panel p-6`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] ll-muted">Local Profile</p>
                 <h2 className="mt-2 text-2xl font-semibold ll-title">Tell Liquid Life about you</h2>
               </div>
-              <span className="rounded-full border border-white/55 bg-white/95 px-3 py-1 text-xs ll-title">Saved automatically</span>
+              <span className={`${styles.signalPill} rounded-full px-3 py-1 text-xs ll-title`}>Saved automatically</span>
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -473,17 +540,17 @@ export default function ProcurementPage() {
             </div>
           </article>
 
-          <article className="ll-panel p-6">
+          <article className={`${styles.depthPanel} ll-panel p-6`}>
             <p className="text-xs uppercase tracking-[0.18em] ll-muted">Document Targeting</p>
             <h2 className="mt-2 text-2xl font-semibold ll-title">Paste the job description and pick a resume</h2>
 
-            <form onSubmit={handleGenerateCoverLetter} className="mt-5 space-y-4">
+            <form onSubmit={handleGenerateApplicationPair} className="mt-5 space-y-4">
               <label className="space-y-2">
                 <FieldLabel>Base Resume</FieldLabel>
                 <select
                   value={selectedResumeId}
                   onChange={(event) => setSelectedResumeId(event.target.value)}
-                  className="w-full rounded-xl border border-white/55 bg-white/92 px-3 py-2 text-sm ll-title outline-none ring-[#5f4d93] transition focus:ring-2"
+                  className={`${styles.inputSurface} w-full px-3 py-2 text-sm ll-title outline-none transition focus:ring-2`}
                 >
                   <option value="">Use profile only</option>
                   {resumeDocuments.map((document) => (
@@ -499,20 +566,53 @@ export default function ProcurementPage() {
                 <ProfileInput label="Target Role" value={targetRole} onChange={setTargetRole} placeholder="Backend Engineer" />
               </div>
 
-              <label className="space-y-2">
-                <FieldLabel>Tone</FieldLabel>
-                <select
-                  value={tone}
-                  onChange={(event) => setTone(event.target.value as ToneOption)}
-                  className="w-full rounded-xl border border-white/55 bg-white/92 px-3 py-2 text-sm ll-title outline-none ring-[#5f4d93] transition focus:ring-2"
-                >
-                  {toneOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option[0].toUpperCase() + option.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-2">
+                  <FieldLabel>Tone</FieldLabel>
+                  <select
+                    value={tone}
+                    onChange={(event) => setTone(event.target.value as ToneOption)}
+                    className={`${styles.inputSurface} w-full px-3 py-2 text-sm ll-title outline-none transition focus:ring-2`}
+                  >
+                    {toneOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option[0].toUpperCase() + option.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <FieldLabel>Resume Style</FieldLabel>
+                  <select
+                    value={resumeStyle}
+                    onChange={(event) => {
+                      const nextTemplate = event.target.value as DocumentTemplateName;
+                      setResumeStyle(nextTemplate);
+                      setResumeTemplateConfig(getDefaultResumeSectionTemplateConfig(nextTemplate));
+                    }}
+                    className={`${styles.inputSurface} w-full px-3 py-2 text-sm ll-title outline-none transition focus:ring-2`}
+                  >
+                    {resumeStyleOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs ll-muted">
+                    {resumeStyleOptions.find((option) => option.value === resumeStyle)?.description}
+                  </p>
+                </label>
+              </div>
+
+              <ResumeSectionStyleFields
+                value={resumeTemplateConfig}
+                onChange={setResumeTemplateConfig}
+                containerClassName="grid gap-4 md:grid-cols-2 xl:grid-cols-5"
+                labelClassName="space-y-2"
+                selectClassName={`${styles.inputSurface} w-full px-3 py-2 text-sm ll-title outline-none transition focus:ring-2`}
+                hintClassName="text-xs ll-muted"
+              />
 
               <label className="space-y-2">
                 <FieldLabel>Job Description</FieldLabel>
@@ -521,39 +621,37 @@ export default function ProcurementPage() {
                   onChange={(event) => setJobDescription(event.target.value)}
                   rows={14}
                   placeholder="Paste the full role description here."
-                  className="w-full rounded-xl border border-white/55 bg-white/92 px-3 py-2 text-sm ll-title outline-none ring-[#5f4d93] transition focus:ring-2"
+                  className={`${styles.inputSurface} w-full px-3 py-2 text-sm ll-title outline-none transition focus:ring-2`}
                 />
               </label>
 
               <div className="flex flex-wrap gap-3">
                 <button
                   type="submit"
-                  disabled={isGeneratingCoverLetter || !status?.ai_configured}
-                  className="rounded-lg bg-[#4f3f85] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isGeneratingDocuments || !status?.ai_configured}
+                  className={`${styles.primaryButton} px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60`}
                 >
-                  {isGeneratingCoverLetter ? "Generating cover letter..." : "Generate Cover Letter"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleGenerateResume()}
-                  disabled={isGeneratingResume || !status?.ai_configured}
-                  className="rounded-lg border border-white/55 bg-white/95 px-4 py-2 text-sm font-semibold ll-title transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isGeneratingResume ? "Generating resume..." : "Generate Resume"}
+                  {isGeneratingDocuments ? "Generating resume + cover letter..." : "Generate Resume + Cover Letter"}
                 </button>
                 <button
                   type="button"
                   onClick={() => void handleRunAts()}
                   disabled={isRunningAts}
-                  className="rounded-lg border border-white/55 bg-white/95 px-4 py-2 text-sm font-semibold ll-title transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`${styles.secondaryButton} px-4 py-2 text-sm font-semibold ll-title transition disabled:cursor-not-allowed disabled:opacity-60`}
                 >
                   {isRunningAts ? "Running ATS review..." : "Run ATS Review"}
                 </button>
               </div>
             </form>
 
-            <div className="mt-5 rounded-2xl border border-dashed border-white/60 bg-white/72 p-4 text-sm ll-muted">
+            <div className={`${styles.infoPanel} mt-5 p-4 text-sm ll-muted`}>
               <p>Resume source count: {resumeDocuments.length}</p>
+              <p className="mt-1">
+                Resume style:{" "}
+                <span className="font-semibold text-[#2c3656]">
+                  {resumeStyleOptions.find((option) => option.value === resumeStyle)?.label}
+                </span>
+              </p>
               <p className="mt-1">Saved outputs go straight into the shared Documents module so you can edit them live afterward.</p>
             </div>
           </article>
@@ -563,6 +661,7 @@ export default function ProcurementPage() {
           <GeneratedPreview
             label="AI Cover Letter"
             result={coverLetterResult}
+            renderedHtml={renderedCoverLetterHtml}
             onSave={() => handleSaveGenerated(coverLetterResult as GeneratedDocumentPayload, "cover_letter")}
             saveLabel="Save to Documents"
             isSaving={isSavingCoverLetter}
@@ -571,20 +670,21 @@ export default function ProcurementPage() {
           <GeneratedPreview
             label="AI Resume"
             result={resumeResult}
+            renderedHtml={renderedResumeHtml}
             onSave={() => handleSaveGenerated(resumeResult as GeneratedDocumentPayload, "resume")}
             saveLabel="Save to Documents"
             isSaving={isSavingResume}
           />
         </section>
 
-        <section className="ll-panel p-6">
+        <section className={`${styles.depthPanel} ll-panel p-6`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.18em] ll-muted">ATS Review</p>
               <h2 className="mt-2 text-2xl font-semibold ll-title">Resume match score</h2>
             </div>
             {atsResult && (
-              <div className="rounded-full border border-white/55 bg-white/95 px-4 py-2 text-sm font-semibold ll-title">
+              <div className={`${styles.signalPill} rounded-full px-4 py-2 text-sm font-semibold ll-title`}>
                 Score: {atsResult.overall_score}/100
               </div>
             )}
@@ -595,28 +695,28 @@ export default function ProcurementPage() {
           ) : (
             <div className="mt-5 grid gap-5 lg:grid-cols-[0.45fr_0.55fr]">
               <div className="space-y-4">
-                <article className="ll-panel-soft p-4">
+                <article className={`${styles.previewCard} ll-panel-soft p-4`}>
                   <p className="text-xs uppercase tracking-[0.16em] ll-muted">Keyword Match</p>
                   <p className="mt-2 text-3xl font-semibold ll-title">{atsResult.keyword_score}%</p>
                 </article>
-                <article className="ll-panel-soft p-4">
+                <article className={`${styles.previewCard} ll-panel-soft p-4`}>
                   <p className="text-xs uppercase tracking-[0.16em] ll-muted">Section Coverage</p>
                   <p className="mt-2 text-3xl font-semibold ll-title">{atsResult.section_score}%</p>
                 </article>
-                <article className="ll-panel-soft p-4">
+                <article className={`${styles.previewCard} ll-panel-soft p-4`}>
                   <p className="text-sm ll-muted">{atsResult.summary}</p>
                 </article>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <article className="ll-panel-soft p-4">
+                <article className={`${styles.previewCard} ll-panel-soft p-4`}>
                   <p className="text-xs uppercase tracking-[0.16em] ll-muted">Matched Keywords</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {atsResult.matched_keywords.length === 0 ? (
                       <p className="text-sm ll-muted">No strong matches detected yet.</p>
                     ) : (
                       atsResult.matched_keywords.map((item) => (
-                        <span key={item} className="rounded-full border border-white/55 bg-white/95 px-3 py-1 text-xs ll-title">
+                        <span key={item} className={`${styles.signalPill} rounded-full px-3 py-1 text-xs ll-title`}>
                           {item}
                         </span>
                       ))
@@ -624,14 +724,14 @@ export default function ProcurementPage() {
                   </div>
                 </article>
 
-                <article className="ll-panel-soft p-4">
+                <article className={`${styles.previewCard} ll-panel-soft p-4`}>
                   <p className="text-xs uppercase tracking-[0.16em] ll-muted">Missing Keywords</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {atsResult.missing_keywords.length === 0 ? (
                       <p className="text-sm ll-muted">No obvious keyword gaps detected.</p>
                     ) : (
                       atsResult.missing_keywords.map((item) => (
-                        <span key={item} className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs text-rose-700">
+                        <span key={item} className={`${styles.dangerPill} rounded-full px-3 py-1 text-xs text-rose-700`}>
                           {item}
                         </span>
                       ))
@@ -639,11 +739,11 @@ export default function ProcurementPage() {
                   </div>
                 </article>
 
-                <article className="ll-panel-soft p-4 md:col-span-2">
+                <article className={`${styles.previewCard} ll-panel-soft p-4 md:col-span-2`}>
                   <p className="text-xs uppercase tracking-[0.16em] ll-muted">Recommendations</p>
                   <ul className="mt-3 space-y-2 text-sm ll-title">
                     {atsResult.recommendations.map((item) => (
-                      <li key={item} className="rounded-lg border border-white/45 bg-white/80 px-3 py-2">
+                      <li key={item} className={`${styles.recommendationCard} px-3 py-2`}>
                         {item}
                       </li>
                     ))}

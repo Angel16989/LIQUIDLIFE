@@ -25,6 +25,7 @@ class Document(models.Model):
         choices=TemplateName.choices,
         default=TemplateName.BALANCED,
     )
+    template_config = models.JSONField(default=dict, blank=True)
     content = models.TextField(blank=True)
     file = models.FileField(upload_to="documents/", blank=True, null=True)
     external_link = models.URLField(blank=True)

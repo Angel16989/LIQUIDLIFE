@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from .document_content import extract_document_content
 from .models import Document, Job
+from .template_config import normalize_document_template_config
 
 
 class DocumentSerializer(serializers.ModelSerializer):
@@ -15,6 +16,7 @@ class DocumentSerializer(serializers.ModelSerializer):
             "title",
             "doc_type",
             "template_name",
+            "template_config",
             "content",
             "file",
             "file_url",
@@ -22,6 +24,24 @@ class DocumentSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
+
+    def validate(self, attrs):
+        validated = super().validate(attrs)
+        template_name = validated.get("template_name")
+        if template_name is None and self.instance is not None:
+            template_name = self.instance.template_name
+        doc_type = validated.get("doc_type")
+        if doc_type is None and self.instance is not None:
+            doc_type = self.instance.doc_type
+
+        if doc_type == Document.DocType.RESUME:
+            validated["template_config"] = normalize_document_template_config(
+                validated.get("template_config"),
+                template_name or Document.TemplateName.BALANCED,
+            )
+        else:
+            validated["template_config"] = {}
+        return validated
 
     def get_file_url(self, obj: Document) -> str | None:
         if not obj.file:

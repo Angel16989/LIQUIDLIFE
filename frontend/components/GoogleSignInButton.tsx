@@ -39,10 +39,23 @@ function getApiErrorMessage(payload: unknown, fallback: string): string {
 
 type GoogleSignInButtonProps = {
   onError: (message: string) => void;
-  onSuccess: (isAdmin: boolean) => void;
+  onInfo?: (message: string) => void;
+  onSuccess: (session: {
+    isAdmin: boolean;
+    mustChangePassword: boolean;
+    emailVerified: boolean;
+    phoneVerified: boolean;
+    phoneVerificationConfigured: boolean;
+  }) => void;
+  mode?: "login" | "register";
 };
 
-export default function GoogleSignInButton({ onError, onSuccess }: GoogleSignInButtonProps) {
+export default function GoogleSignInButton({
+  onError,
+  onInfo,
+  onSuccess,
+  mode = "login",
+}: GoogleSignInButtonProps) {
   const buttonRef = useRef<HTMLDivElement | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
 
@@ -89,19 +102,49 @@ export default function GoogleSignInButton({ onError, onSuccess }: GoogleSignInB
           });
 
           const payload = (await response.json().catch(() => null)) as
-            | { access?: string; refresh?: string; is_admin?: boolean; username?: string; detail?: string }
+            | {
+                access?: string;
+                refresh?: string;
+                is_admin?: boolean;
+                username?: string;
+                must_change_password?: boolean;
+                email_verified?: boolean;
+                phone_verified?: boolean;
+                phone_verification_configured?: boolean;
+                phone_number?: string;
+                detail?: string;
+              }
             | null;
+
+          if (response.status === 403 && payload?.detail && mode === "register") {
+            onInfo?.(payload.detail);
+            return;
+          }
 
           if (!response.ok || !payload?.access || !payload.refresh) {
             throw new Error(getApiErrorMessage(payload, "Google sign-in failed."));
           }
 
-          setAuthSession(payload.access, {
-            username: payload.username ?? "member",
+          setAuthSession(
+            payload.access,
+            {
+              username: payload.username ?? "member",
+              isAdmin: Boolean(payload.is_admin),
+              mustChangePassword: Boolean(payload.must_change_password),
+              emailVerified: Boolean(payload.email_verified),
+              phoneVerified: Boolean(payload.phone_verified),
+              phoneVerificationConfigured: Boolean(payload.phone_verification_configured),
+              phoneNumber: payload.phone_number ?? "",
+            },
+            payload.refresh,
+          );
+          onSuccess({
             isAdmin: Boolean(payload.is_admin),
+            mustChangePassword: Boolean(payload.must_change_password),
+            emailVerified: Boolean(payload.email_verified),
+            phoneVerified: Boolean(payload.phone_verified),
+            phoneVerificationConfigured: Boolean(payload.phone_verification_configured),
           });
-          window.localStorage.setItem("liquid-life-refresh-token", payload.refresh);
-          onSuccess(Boolean(payload.is_admin));
         } catch (error) {
           console.error(error);
           onError(error instanceof Error ? error.message : "Google sign-in failed.");
@@ -116,7 +159,7 @@ export default function GoogleSignInButton({ onError, onSuccess }: GoogleSignInB
       text: "signin_with",
       shape: "pill",
     });
-  }, [hasLoaded, onError, onSuccess]);
+  }, [hasLoaded, mode, onError, onInfo, onSuccess]);
 
   if (!isGoogleLoginEnabled()) {
     return null;

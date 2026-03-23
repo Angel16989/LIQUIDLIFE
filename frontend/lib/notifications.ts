@@ -1,6 +1,7 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/api";
+import { authFetch, hasAuthSession } from "@/lib/auth";
 
 type JobStatus = "Applied" | "Interview" | "Offer" | "Rejected";
 
@@ -179,31 +180,23 @@ export async function collectTaskNotifications({
 }): Promise<TaskNotification[]> {
   const notifications: TaskNotification[] = [];
   const normalizedUsername = username.trim() || "member";
+  const hasRemoteSession = Boolean(token) || hasAuthSession();
 
-  const jobsPromise = token
-    ? fetch(`${API_BASE_URL}/jobs`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+  const jobsPromise = hasRemoteSession
+    ? authFetch(`${API_BASE_URL}/jobs`, {
         cache: "no-store",
       })
     : null;
 
-  const documentsPromise = token
-    ? fetch(`${API_BASE_URL}/documents`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+  const documentsPromise = hasRemoteSession
+    ? authFetch(`${API_BASE_URL}/documents`, {
         cache: "no-store",
       })
     : null;
 
   const adminPromise =
-    token && isAdmin
-      ? fetch(`${API_BASE_URL}/auth/admin/engagement`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+    hasRemoteSession && isAdmin
+      ? authFetch(`${API_BASE_URL}/auth/admin/engagement`, {
           cache: "no-store",
         })
       : null;

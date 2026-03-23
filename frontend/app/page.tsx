@@ -50,7 +50,6 @@ export default function Home() {
                   type="button"
                   onClick={() => {
                     clearAuthToken();
-                    window.localStorage.removeItem("liquid-life-refresh-token");
                   }}
                   className="ll-pill-btn px-3 py-2 text-sm font-semibold"
                 >

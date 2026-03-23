@@ -5,7 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
 import { API_BASE_URL } from "@/lib/api";
-import { hasAuthToken, setAuthSession } from "@/lib/auth";
+import { getCurrentUserMeta, hasAuthSession, mustCompleteAccountVerification, setAuthSession } from "@/lib/auth";
 
 function getApiErrorMessage(payload: unknown, fallback: string): string {
   if (!payload || typeof payload !== "object") {
@@ -45,7 +45,16 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    if (hasAuthToken()) {
+    if (hasAuthSession()) {
+      const currentUserMeta = getCurrentUserMeta();
+      if (currentUserMeta?.mustChangePassword) {
+        router.replace("/change-password?required=1");
+        return;
+      }
+      if (mustCompleteAccountVerification()) {
+        router.replace("/verify-account");
+        return;
+      }
       router.replace("/dashboard");
     }
   }, [router]);
@@ -72,14 +81,45 @@ export default function LoginPage() {
         throw new Error(getApiErrorMessage(payload, "Invalid credentials"));
       }
 
-      const data = (await response.json()) as { access: string; refresh: string; is_admin?: boolean; username?: string };
-      setAuthSession(data.access, {
-        username: data.username ?? username.trim(),
-        isAdmin: Boolean(data.is_admin),
-      });
-      window.localStorage.setItem("liquid-life-refresh-token", data.refresh);
+      const data = (await response.json()) as {
+        access: string;
+        refresh: string;
+        is_admin?: boolean;
+        username?: string;
+        must_change_password?: boolean;
+        email_verified?: boolean;
+        phone_verified?: boolean;
+        phone_verification_configured?: boolean;
+        phone_number?: string;
+      };
+      setAuthSession(
+        data.access,
+        {
+          username: data.username ?? username.trim(),
+          isAdmin: Boolean(data.is_admin),
+          mustChangePassword: Boolean(data.must_change_password),
+          emailVerified: Boolean(data.email_verified),
+          phoneVerified: Boolean(data.phone_verified),
+          phoneVerificationConfigured: Boolean(data.phone_verification_configured),
+          phoneNumber: data.phone_number ?? "",
+        },
+        data.refresh,
+      );
 
       const next = new URLSearchParams(window.location.search).get("next");
+      if (!data.is_admin && data.must_change_password) {
+        router.replace("/change-password?required=1");
+        return;
+      }
+
+      if (
+        !data.is_admin &&
+        (!data.email_verified || (data.phone_verification_configured && !data.phone_verified))
+      ) {
+        router.replace("/verify-account");
+        return;
+      }
+
       router.replace(data.is_admin ? "/admin-panel" : next || "/dashboard");
     } catch (submitError) {
       console.error(submitError);
@@ -140,7 +180,21 @@ export default function LoginPage() {
 
         <GoogleSignInButton
           onError={(message) => setError(message)}
-          onSuccess={(isAdmin) => router.replace(isAdmin ? "/admin-panel" : "/dashboard")}
+          onSuccess={({ isAdmin, mustChangePassword, emailVerified, phoneVerified, phoneVerificationConfigured }) => {
+            if (isAdmin) {
+              router.replace("/admin-panel");
+              return;
+            }
+            if (mustChangePassword) {
+              router.replace("/change-password?required=1");
+              return;
+            }
+            if (!emailVerified || (phoneVerificationConfigured && !phoneVerified)) {
+              router.replace("/verify-account");
+              return;
+            }
+            router.replace("/dashboard");
+          }}
         />
 
         <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-sm ll-muted">

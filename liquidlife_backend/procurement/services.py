@@ -8,6 +8,8 @@ from urllib import error, request
 
 from django.conf import settings
 
+from jobs.template_config import normalize_document_template_config
+
 OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 AI_PROVIDER = "openai"
 DEFAULT_MODEL = "gpt-4o-mini"
@@ -265,19 +267,114 @@ def _contact_line(profile: dict) -> list[str]:
     return [part for part in contact_parts if part]
 
 
+def _clean_text(value: object) -> str:
+    return str(value or "").strip()
+
+
+def _first_non_empty(*values: object) -> str:
+    for value in values:
+        cleaned = _clean_text(value)
+        if cleaned:
+            return cleaned
+    return ""
+
+
+def _normalize_experience_items(value: object) -> list[dict]:
+    if not isinstance(value, list):
+        return []
+
+    normalized: list[dict] = []
+    for item in value[:6]:
+        if isinstance(item, dict):
+            normalized_item = {
+                "role": _clean_text(item.get("role")),
+                "company": _clean_text(item.get("company")),
+                "duration": _clean_text(item.get("duration")),
+                "bullets": normalize_list(item.get("bullets", []))[:5],
+            }
+        else:
+            normalized_item = {
+                "role": "",
+                "company": "",
+                "duration": "",
+                "bullets": normalize_list(item)[:3],
+            }
+
+        if (
+            normalized_item["role"]
+            or normalized_item["company"]
+            or normalized_item["duration"]
+            or normalized_item["bullets"]
+        ):
+            normalized.append(normalized_item)
+
+    return normalized
+
+
+def _normalize_generation_pair(content: dict, profile: dict) -> dict:
+    resume = content.get("resume", {}) if isinstance(content.get("resume"), dict) else {}
+    cover_letter = (
+        content.get("cover_letter", {}) if isinstance(content.get("cover_letter"), dict) else {}
+    )
+
+    summary = _clean_text(resume.get("summary"))
+    if not summary:
+        summary = _clean_text(profile.get("summary"))
+
+    normalized_resume = {
+        "summary": summary,
+        "skills": normalize_list(resume.get("skills", []))[:12],
+        "experience": _normalize_experience_items(resume.get("experience", [])),
+        "projects": normalize_list(resume.get("projects", []))[:8],
+        "education": normalize_list(resume.get("education", []))[:6],
+    }
+    normalized_cover_letter = {
+        "opening": _clean_text(cover_letter.get("opening")),
+        "body": normalize_list(cover_letter.get("body", []))[:4],
+        "closing": _clean_text(cover_letter.get("closing")),
+    }
+
+    return {
+        "resume": normalized_resume,
+        "cover_letter": normalized_cover_letter,
+    }
+
+
+def _collect_target_keywords(job_description: str, content: dict) -> list[str]:
+    job_keywords = extract_keywords(job_description, limit=18)
+    combined_sections = [
+        content["resume"].get("summary", ""),
+        " ".join(content["resume"].get("skills", [])),
+        " ".join(content["resume"].get("projects", [])),
+        " ".join(content["resume"].get("education", [])),
+        content["cover_letter"].get("opening", ""),
+        " ".join(content["cover_letter"].get("body", [])),
+        content["cover_letter"].get("closing", ""),
+    ]
+    for item in content["resume"].get("experience", []):
+        combined_sections.extend(
+            [
+                item.get("role", ""),
+                item.get("company", ""),
+                item.get("duration", ""),
+                " ".join(item.get("bullets", [])),
+            ]
+        )
+
+    combined_text = " ".join(section for section in combined_sections if section).lower()
+    targeted = [keyword for keyword in job_keywords if keyword.lower() in combined_text]
+    return targeted[:12]
+
+
 def build_cover_letter_html(content: dict, profile: dict) -> str:
-    opening = str(content.get("opening", "")).strip()
-    body_paragraphs = normalize_list(content.get("body_paragraphs", []))
-    closing = str(content.get("closing", "")).strip()
-    key_matches = normalize_list(content.get("key_matches", []))
+    opening = _clean_text(content.get("opening"))
+    body_paragraphs = normalize_list(content.get("body", []))
+    closing = _clean_text(content.get("closing"))
 
     blocks = []
     if opening:
         blocks.append(f"<p>{escape(opening)}</p>")
     blocks.append(_paragraphs_to_html(body_paragraphs))
-    if key_matches:
-        blocks.append("<h2>Why I Match</h2>")
-        blocks.append(_bullets_to_html(key_matches))
     if closing:
         blocks.append(f"<p>{escape(closing)}</p>")
     if profile.get("full_name"):
@@ -287,94 +384,207 @@ def build_cover_letter_html(content: dict, profile: dict) -> str:
 
 
 def build_resume_html(content: dict, profile: dict) -> str:
-    summary = str(content.get("summary", "")).strip()
-    experience_highlights = normalize_list(content.get("experience_highlights", []))
-    project_highlights = normalize_list(content.get("project_highlights", []))
-    skills = normalize_list(content.get("core_skills", []))
+    summary = _clean_text(content.get("summary"))
+    skills = normalize_list(content.get("skills", []))
+    experience = _normalize_experience_items(content.get("experience", []))
+    projects = normalize_list(content.get("projects", []))
     education = normalize_list(content.get("education", []))
-    certifications = normalize_list(content.get("certifications", []))
-    keywords = normalize_list(content.get("keywords_targeted", []))
 
     sections: list[str] = []
     contact_line = " | ".join(escape(part) for part in _contact_line(profile))
+    if profile.get("full_name"):
+        sections.append(f"<p><strong>{escape(profile['full_name'])}</strong></p>")
     if contact_line:
-        sections.append(f"<p><strong>{contact_line}</strong></p>")
+        sections.append(f"<p>{contact_line}</p>")
     if summary:
         sections.append("<h2>Professional Summary</h2>")
         sections.append(f"<p>{escape(summary)}</p>")
     if skills:
         sections.append("<h2>Core Skills</h2>")
         sections.append(_bullets_to_html(skills))
-    if experience_highlights:
-        sections.append("<h2>Experience Highlights</h2>")
-        sections.append(_bullets_to_html(experience_highlights))
-    if project_highlights:
+    if experience:
+        sections.append("<h2>Professional Experience</h2>")
+        for item in experience:
+            heading_bits = [bit for bit in [item.get("role"), item.get("company")] if bit]
+            if heading_bits:
+                sections.append(f"<h3>{escape(' | '.join(heading_bits))}</h3>")
+            if item.get("duration"):
+                sections.append(f"<p><em>{escape(item['duration'])}</em></p>")
+            sections.append(_bullets_to_html(item.get("bullets", [])))
+    if projects:
         sections.append("<h2>Projects</h2>")
-        sections.append(_bullets_to_html(project_highlights))
+        sections.append(_bullets_to_html(projects))
     if education:
         sections.append("<h2>Education</h2>")
         sections.append(_bullets_to_html(education))
-    if certifications:
-        sections.append("<h2>Certifications</h2>")
-        sections.append(_bullets_to_html(certifications))
-    if keywords:
-        sections.append("<h2>Target Keywords</h2>")
-        sections.append(_bullets_to_html(keywords))
+
     return "".join(section for section in sections if section)
 
 
+def _build_generation_prompt() -> str:
+    return """
+You are an expert ATS resume and cover letter generator.
+
+You MUST generate BOTH:
+1. Resume
+2. Cover Letter
+
+The output must be CLEAN, STRUCTURED, CONSISTENT, and READY FOR TEMPLATE RENDERING.
+
+========================
+OUTPUT FORMAT (STRICT JSON ONLY)
+========================
+
+{
+  "resume": {
+    "summary": "string",
+    "skills": ["string"],
+    "experience": [
+      {
+        "role": "string",
+        "company": "string",
+        "duration": "string",
+        "bullets": ["string"]
+      }
+    ],
+    "projects": ["string"],
+    "education": ["string"]
+  },
+  "cover_letter": {
+    "opening": "string",
+    "body": ["string"],
+    "closing": "string"
+  }
+}
+
+========================
+STRICT RULES
+========================
+
+GENERAL:
+- DO NOT output text outside JSON
+- DO NOT include explanations
+- DO NOT include markdown
+- KEEP output clean and structured
+
+RESUME RULES:
+- Summary: 3-4 lines max
+- Skills: relevant to job description only
+- Experience bullets MUST follow ACTION + TASK + IMPACT
+- Focus on IT support, Azure or cloud, Linux, networking, and troubleshooting when relevant to the profile and job
+- Use numbers where possible, including realistic estimates when the profile implies them
+- Do not use generic words such as hardworking, team player, or responsible for
+- Each bullet must be strong, short, and impactful
+
+COVER LETTER RULES:
+- Opening must mention the role and company
+- Body must explain fit using real skills from the profile and resume context
+- Closing must be short and confident
+
+CONSISTENCY RULES:
+- Skills in resume MUST appear in cover letter when relevant
+- Use the same professional tone across both documents
+- No contradictions between resume and cover letter
+
+ATS OPTIMIZATION:
+- Extract keywords from the job description
+- Naturally include those keywords in skills, experience bullets, and cover letter body
+
+FORMAT QUALITY:
+- No long paragraphs
+- No repetition
+- No unnecessary words
+- Clean and professional tone
+
+Only use facts grounded in the candidate profile and provided resume context.
+""".strip()
+
+
+def generate_application_documents(
+    *,
+    profile: dict,
+    job_description: str,
+    resume_text: str,
+    company_name: str,
+    target_role: str,
+    template_name: str = "balanced",
+    template_config: dict | None = None,
+) -> dict:
+    normalized_profile = format_profile_for_prompt(profile)
+    normalized_template_config = normalize_document_template_config(template_config, template_name or "balanced")
+    payload = {
+        "PROFILE_JSON": {
+            **normalized_profile,
+            "resume_context": strip_html(resume_text),
+            "company_name": company_name,
+            "target_role": target_role,
+        },
+        "JOB_DESCRIPTION": job_description,
+    }
+    response = _call_openai_json(_build_generation_prompt(), payload, temperature=0.35)
+    structured = _normalize_generation_pair(response, normalized_profile)
+    keywords_targeted = _collect_target_keywords(job_description, structured)
+    highlight_skills = structured["resume"].get("skills", [])[:6]
+
+    role_label = _first_non_empty(target_role, "Resume")
+    company_label = _first_non_empty(company_name, "Application")
+    name_label = _first_non_empty(normalized_profile.get("full_name"), "Candidate")
+
+    return {
+        "resume": {
+            "title": f"{name_label} Resume - {role_label}" if role_label else f"{name_label} Resume",
+            "content": build_resume_html(structured["resume"], normalized_profile),
+            "doc_type": "resume",
+            "template_name": template_name or "balanced",
+            "template_config": normalized_template_config,
+            "keywords_targeted": keywords_targeted,
+        },
+        "cover_letter": {
+            "title": f"{company_label} Cover Letter",
+            "content": build_cover_letter_html(structured["cover_letter"], normalized_profile),
+            "doc_type": "cover_letter",
+            "template_name": "executive",
+            "template_config": {},
+            "highlights": highlight_skills,
+            "keywords_targeted": keywords_targeted,
+        },
+        "structured": structured,
+    }
+
+
 def generate_cover_letter(*, profile: dict, job_description: str, resume_text: str, tone: str, company_name: str) -> dict:
-    normalized_profile = format_profile_for_prompt(profile)
-    payload = {
-        "job_description": job_description,
-        "resume_context": resume_text,
-        "tone": tone or "professional",
-        "company_name": company_name,
-        "candidate_profile": normalized_profile,
-    }
-    system_prompt = (
-        "You write tailored, concise cover letters for job applications. "
-        "Return valid JSON only with keys: title, opening, body_paragraphs, closing, key_matches. "
-        "body_paragraphs and key_matches must be arrays of strings. "
-        "Use the candidate profile and resume context when tailoring to the job description."
-    )
-    response = _call_openai_json(system_prompt, payload, temperature=0.55)
-    title = str(response.get("title", "")).strip() or "AI Tailored Cover Letter"
-    html_content = build_cover_letter_html(response, normalized_profile)
-    return {
-        "title": title,
-        "content": html_content,
-        "doc_type": "cover_letter",
-        "template_name": "executive",
-        "highlights": normalize_list(response.get("key_matches", [])),
-    }
+    del tone
+    return generate_application_documents(
+        profile=profile,
+        job_description=job_description,
+        resume_text=resume_text,
+        company_name=company_name,
+        target_role="",
+        template_name="balanced",
+        template_config=None,
+    )["cover_letter"]
 
 
-def generate_resume(*, profile: dict, job_description: str, resume_text: str, tone: str, target_role: str) -> dict:
-    normalized_profile = format_profile_for_prompt(profile)
-    payload = {
-        "job_description": job_description,
-        "resume_context": resume_text,
-        "tone": tone or "professional",
-        "target_role": target_role,
-        "candidate_profile": normalized_profile,
-    }
-    system_prompt = (
-        "You tailor resumes for ATS alignment and human readability. "
-        "Return valid JSON only with keys: title, summary, core_skills, experience_highlights, "
-        "project_highlights, education, certifications, keywords_targeted. "
-        "The array fields must be arrays of strings. Keep claims grounded in the candidate profile and resume context."
-    )
-    response = _call_openai_json(system_prompt, payload, temperature=0.45)
-    title = str(response.get("title", "")).strip() or f"AI Tailored Resume{f' - {target_role}' if target_role else ''}"
-    html_content = build_resume_html(response, normalized_profile)
-    return {
-        "title": title,
-        "content": html_content,
-        "doc_type": "resume",
-        "template_name": "balanced",
-        "keywords_targeted": normalize_list(response.get("keywords_targeted", [])),
-    }
+def generate_resume(
+    *,
+    profile: dict,
+    job_description: str,
+    resume_text: str,
+    tone: str,
+    target_role: str,
+    template_name: str = "balanced",
+    template_config: dict | None = None,
+) -> dict:
+    del tone
+    return generate_application_documents(
+        profile=profile,
+        job_description=job_description,
+        resume_text=resume_text,
+        company_name="",
+        target_role=target_role,
+        template_name=template_name,
+        template_config=template_config,
+    )["resume"]
 
 
 def _normalize_keyword(token: str) -> str:

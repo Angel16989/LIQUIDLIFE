@@ -1,16 +1,23 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.permissions import IsVerifiedAccountOrAdmin
 from jobs.models import Document
 
-from .serializers import AtsReviewSerializer, CoverLetterGenerationSerializer, ProcurementStatusSerializer, ResumeGenerationSerializer
+from .serializers import (
+    ApplicationPairGenerationSerializer,
+    AtsReviewSerializer,
+    CoverLetterGenerationSerializer,
+    ProcurementStatusSerializer,
+    ResumeGenerationSerializer,
+)
 from .services import (
     ProcurementAIConfigurationError,
     ProcurementAIError,
     ats_review,
+    generate_application_documents,
     generate_cover_letter,
     generate_resume,
     get_ai_status,
@@ -19,7 +26,7 @@ from .services import (
 
 
 class ProcurementStatusAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsVerifiedAccountOrAdmin]
 
     def get(self, request):
         serializer = ProcurementStatusSerializer(get_ai_status())
@@ -27,7 +34,7 @@ class ProcurementStatusAPIView(APIView):
 
 
 class ProcurementCoverLetterAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsVerifiedAccountOrAdmin]
 
     def post(self, request):
         serializer = CoverLetterGenerationSerializer(data=request.data)
@@ -61,7 +68,7 @@ class ProcurementCoverLetterAPIView(APIView):
 
 
 class ProcurementResumeAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsVerifiedAccountOrAdmin]
 
     def post(self, request):
         serializer = ResumeGenerationSerializer(data=request.data)
@@ -85,6 +92,44 @@ class ProcurementResumeAPIView(APIView):
                 resume_text=resume_text,
                 tone=data.get("tone", "professional"),
                 target_role=data.get("target_role", ""),
+                template_name=data.get("template_name", "balanced"),
+                template_config=data.get("template_config") or {},
+            )
+        except ProcurementAIConfigurationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except ProcurementAIError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+
+        return Response(payload, status=status.HTTP_200_OK)
+
+
+class ProcurementApplicationPairAPIView(APIView):
+    permission_classes = [IsVerifiedAccountOrAdmin]
+
+    def post(self, request):
+        serializer = ApplicationPairGenerationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        resume_text = ""
+        resume_document_id = data.get("resume_document_id")
+        if resume_document_id:
+            resume = get_object_or_404(
+                Document,
+                id=resume_document_id,
+                owner=request.user,
+                doc_type=Document.DocType.RESUME,
+            )
+            resume_text = strip_html(resume.content)
+
+        try:
+            payload = generate_application_documents(
+                profile=data["profile"],
+                job_description=data["job_description"],
+                resume_text=resume_text,
+                company_name=data.get("company_name", ""),
+                target_role=data.get("target_role", ""),
+                template_name=data.get("template_name", "balanced"),
+                template_config=data.get("template_config") or {},
             )
         except ProcurementAIConfigurationError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
@@ -95,7 +140,7 @@ class ProcurementResumeAPIView(APIView):
 
 
 class ProcurementATSAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsVerifiedAccountOrAdmin]
 
     def post(self, request):
         serializer = AtsReviewSerializer(data=request.data)

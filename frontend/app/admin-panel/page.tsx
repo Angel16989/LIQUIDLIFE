@@ -6,7 +6,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { API_BASE_URL } from "@/lib/api";
-import { clearAuthToken, getAuthToken } from "@/lib/auth";
+import { authFetch, clearAuthToken } from "@/lib/auth";
 import { requestNotificationsRefresh } from "@/lib/notifications";
 
 type Engagement = {
@@ -39,6 +39,7 @@ type UserAccount = {
   last_login: string | null;
   authorization_status: "pending" | "approved" | "rejected" | "inactive" | "admin";
   authorization_request_id: number | null;
+  must_change_password: boolean;
 };
 
 type AdminPanelPayload = {
@@ -69,12 +70,8 @@ function getApiErrorMessage(payload: unknown, fallback: string): string {
   return fallback;
 }
 
-async function fetchAdminPanelData(token: string): Promise<AdminPanelPayload> {
-  const response = await fetch(`${API_BASE_URL}/auth/admin/engagement`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+async function fetchAdminPanelData(): Promise<AdminPanelPayload> {
+  const response = await authFetch(`${API_BASE_URL}/auth/admin/engagement`);
 
   if (response.status === 401) {
     throw new Error("Unauthorized. Please login again.");
@@ -109,6 +106,7 @@ export default function AdminPanelPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeMutationKey, setActiveMutationKey] = useState<string | null>(null);
   const [passwordInputs, setPasswordInputs] = useState<Record<number, string>>({});
+  const [passwordChangeRequired, setPasswordChangeRequired] = useState<Record<number, boolean>>({});
   const [generatedPasswords, setGeneratedPasswords] = useState<Record<number, string>>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [createUserForm, setCreateUserForm] = useState({
@@ -119,18 +117,12 @@ export default function AdminPanelPage() {
 
   const loadData = useCallback(
     async (showLoader = true) => {
-      const token = getAuthToken();
-      if (!token) {
-        setError("Missing access token.");
-        return;
-      }
-
       try {
         if (showLoader) {
           setIsLoading(true);
         }
         setError(null);
-        const data = await fetchAdminPanelData(token);
+        const data = await fetchAdminPanelData();
         setPayload(data);
         requestNotificationsRefresh();
       } catch (loadError) {
@@ -164,21 +156,14 @@ export default function AdminPanelPage() {
   }, [isAuthenticated, loadData]);
 
   async function handleDecision(requestId: number, decision: "approved" | "rejected") {
-    const token = getAuthToken();
-    if (!token) {
-      setError("Missing access token.");
-      return;
-    }
-
     try {
       setError(null);
       setSuccessMessage(null);
       setActiveMutationKey(`${decision}-${requestId}`);
-      const response = await fetch(`${API_BASE_URL}/auth/authorization-requests/${requestId}/decision`, {
+      const response = await authFetch(`${API_BASE_URL}/auth/authorization-requests/${requestId}/decision`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ decision }),
       });
@@ -204,21 +189,12 @@ export default function AdminPanelPage() {
       return;
     }
 
-    const token = getAuthToken();
-    if (!token) {
-      setError("Missing access token.");
-      return;
-    }
-
     try {
       setError(null);
       setSuccessMessage(null);
       setActiveMutationKey(`delete-${userId}`);
-      const response = await fetch(`${API_BASE_URL}/auth/users/${userId}`, {
+      const response = await authFetch(`${API_BASE_URL}/auth/users/${userId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (!response.ok) {
@@ -237,13 +213,8 @@ export default function AdminPanelPage() {
   }
 
   async function handleSetPassword(userId: number, generatePassword: boolean) {
-    const token = getAuthToken();
-    if (!token) {
-      setError("Missing access token.");
-      return;
-    }
-
     const manualPassword = passwordInputs[userId] ?? "";
+    const requirePasswordChange = passwordChangeRequired[userId] ?? true;
     if (!generatePassword && !manualPassword.trim()) {
       setError("Enter a password before saving.");
       return;
@@ -253,19 +224,21 @@ export default function AdminPanelPage() {
       setError(null);
       setSuccessMessage(null);
       setActiveMutationKey(`password-${userId}-${generatePassword ? "auto" : "manual"}`);
-      const response = await fetch(`${API_BASE_URL}/auth/users/${userId}/password`, {
+      const response = await authFetch(`${API_BASE_URL}/auth/users/${userId}/password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           password: manualPassword,
           generate_password: generatePassword,
+          require_password_change: requirePasswordChange,
         }),
       });
 
-      const payload = (await response.json().catch(() => null)) as { detail?: string; generated_password?: string } | null;
+      const payload = (await response.json().catch(() => null)) as
+        | { detail?: string; generated_password?: string; must_change_password?: boolean }
+        | null;
       if (!response.ok) {
         throw new Error(getApiErrorMessage(payload, "Failed to update password."));
       }
@@ -275,7 +248,15 @@ export default function AdminPanelPage() {
         payload?.generated_password ? { ...current, [userId]: payload.generated_password } : current,
       );
       await loadData(false);
-      setSuccessMessage(generatePassword ? "Temporary password generated." : "Password updated successfully.");
+      setSuccessMessage(
+        generatePassword
+          ? requirePasswordChange
+            ? "Temporary password generated. User must change it on next login."
+            : "Temporary password generated."
+          : requirePasswordChange
+            ? "Password updated. User must change it on next login."
+            : "Password updated successfully.",
+      );
     } catch (passwordError) {
       console.error(passwordError);
       setError(passwordError instanceof Error ? passwordError.message : "Could not update password.");
@@ -301,22 +282,14 @@ export default function AdminPanelPage() {
       return;
     }
 
-    const token = getAuthToken();
-    if (!token) {
-      setError("Missing access token.");
-      setSuccessMessage(null);
-      return;
-    }
-
     try {
       setError(null);
       setSuccessMessage(null);
       setActiveMutationKey("create-user");
-      const response = await fetch(`${API_BASE_URL}/auth/users`, {
+      const response = await authFetch(`${API_BASE_URL}/auth/users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           username,
@@ -380,7 +353,6 @@ export default function AdminPanelPage() {
               type="button"
               onClick={() => {
                 clearAuthToken();
-                window.localStorage.removeItem("liquid-life-refresh-token");
                 window.location.href = "/";
               }}
               className="ll-pill-btn px-3 py-2 text-sm font-semibold"
@@ -573,6 +545,9 @@ export default function AdminPanelPage() {
                 </p>
                 <p className="mt-1 text-xs ll-muted">Email: {user.email || "No email"}</p>
                 <p className="mt-1 text-xs ll-muted">Access: {user.is_active ? "enabled" : "blocked"}</p>
+                <p className="mt-1 text-xs ll-muted">
+                  Next login password change: {user.must_change_password ? "required" : "not required"}
+                </p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   {user.authorization_status === "pending" && user.authorization_request_id ? (
@@ -630,6 +605,20 @@ export default function AdminPanelPage() {
                       placeholder="Set a manual password"
                       className="w-full rounded-lg border border-white/60 bg-white/95 px-3 py-2 text-sm ll-title outline-none ring-[#5f4d93] transition focus:ring-2"
                     />
+                    <label className="flex items-center gap-2 rounded-lg border border-white/60 bg-white/95 px-3 py-2 text-xs ll-title">
+                      <input
+                        checked={passwordChangeRequired[user.id] ?? true}
+                        onChange={(event) =>
+                          setPasswordChangeRequired((current) => ({
+                            ...current,
+                            [user.id]: event.target.checked,
+                          }))
+                        }
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-zinc-300 text-[#4f3f85]"
+                      />
+                      <span>Force password change on next login</span>
+                    </label>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"

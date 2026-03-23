@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { API_BASE_URL } from "@/lib/api";
-import { clearAuthToken, getAuthToken } from "@/lib/auth";
+import { authFetch, clearAuthToken } from "@/lib/auth";
 
 type DashboardLink = {
   title: string;
@@ -41,18 +41,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function checkAdminStatus() {
-      const token = getAuthToken();
-      if (!token) {
-        setIsAdmin(false);
-        return;
-      }
-
       try {
-        const response = await fetch(`${API_BASE_URL}/auth/admin/engagement`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await authFetch(`${API_BASE_URL}/auth/admin/engagement`);
         setIsAdmin(response.ok);
       } catch {
         setIsAdmin(false);
@@ -91,7 +81,6 @@ export default function DashboardPage() {
             type="button"
             onClick={() => {
               clearAuthToken();
-              window.localStorage.removeItem("liquid-life-refresh-token");
               window.location.href = "/";
             }}
             className="rounded-lg border border-white/55 bg-white/85 px-3 py-2 text-sm font-medium text-[#3b3168] transition hover:bg-white"

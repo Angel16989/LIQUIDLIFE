@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
 import { API_BASE_URL } from "@/lib/api";
 
 function getApiErrorMessage(payload: unknown, fallback: string): string {
@@ -34,6 +35,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,6 +52,7 @@ export default function RegisterPage() {
     try {
       setIsSubmitting(true);
       setError(null);
+      setInfo(null);
 
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: "POST",
@@ -80,6 +83,9 @@ export default function RegisterPage() {
 
         {error && (
           <p className="mt-4 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+        )}
+        {info && !error && (
+          <p className="mt-4 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{info}</p>
         )}
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -129,6 +135,30 @@ export default function RegisterPage() {
             {isSubmitting ? "Creating account..." : "Register"}
           </button>
         </form>
+
+        <GoogleSignInButton
+          mode="register"
+          onError={(message) => setError(message)}
+          onInfo={(message) => {
+            setError(null);
+            setInfo(message);
+          }}
+          onSuccess={({ isAdmin, mustChangePassword, emailVerified, phoneVerified, phoneVerificationConfigured }) => {
+            if (isAdmin) {
+              router.replace("/admin-panel");
+              return;
+            }
+            if (mustChangePassword) {
+              router.replace("/change-password?required=1");
+              return;
+            }
+            if (!emailVerified || (phoneVerificationConfigured && !phoneVerified)) {
+              router.replace("/verify-account");
+              return;
+            }
+            router.replace("/dashboard");
+          }}
+        />
 
         <p className="mt-5 text-sm ll-muted">
           Already have an account?{" "}

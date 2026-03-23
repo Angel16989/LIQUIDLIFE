@@ -7,15 +7,18 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { renderAsync } from "docx-preview";
 import DashboardLayout from "@/components/DashboardLayout";
+import ResumeSectionStyleFields from "@/components/ResumeSectionStyleFields";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { API_BASE_URL } from "@/lib/api";
-import { getAuthToken } from "@/lib/auth";
+import { authFetch } from "@/lib/auth";
 import {
   DEFAULT_DOCUMENT_TEMPLATE,
   DOCUMENT_TEMPLATE_OPTIONS,
+  getDefaultResumeSectionTemplateConfig,
   getStarterDocumentContent,
   smartFormatDocumentContent,
   type DocumentTemplateName,
+  type ResumeSectionTemplateConfig,
 } from "@/lib/documentTemplates";
 import {
   type ApiDocument,
@@ -38,6 +41,7 @@ type SaveFormState = {
   title: string;
   docType: DocumentType;
   templateName: DocumentTemplateName;
+  templateConfig: ResumeSectionTemplateConfig;
   externalLink: string;
   file: File | null;
 };
@@ -65,6 +69,7 @@ export default function DocumentEditorPage() {
     title: "",
     docType: "general",
     templateName: DEFAULT_DOCUMENT_TEMPLATE,
+    templateConfig: getDefaultResumeSectionTemplateConfig(DEFAULT_DOCUMENT_TEMPLATE),
     externalLink: "",
     file: null,
   });
@@ -111,6 +116,7 @@ export default function DocumentEditorPage() {
           title: loaded.title,
           docType: loaded.docType,
           templateName: loaded.templateName,
+          templateConfig: loaded.templateConfig,
           externalLink: loaded.externalLink,
           file: null,
         });
@@ -120,6 +126,7 @@ export default function DocumentEditorPage() {
           title: loaded.title,
           docType: loaded.docType,
           templateName: loaded.templateName,
+          templateConfig: loaded.templateConfig,
           externalLink: loaded.externalLink,
           content: initialContent,
           fileName: "",
@@ -144,6 +151,7 @@ export default function DocumentEditorPage() {
       title: form.title.trim(),
       docType: form.docType,
       templateName: form.templateName,
+      templateConfig: form.templateConfig,
       externalLink: form.externalLink.trim(),
       content: editorContent,
       fileName: form.file?.name ?? "",
@@ -159,6 +167,7 @@ export default function DocumentEditorPage() {
       payload.append("title", form.title.trim());
       payload.append("doc_type", form.docType);
       payload.append("template_name", form.templateName);
+      payload.append("template_config", JSON.stringify(form.templateConfig));
       payload.append("external_link", form.externalLink.trim());
       payload.append("content", editorContent);
 
@@ -166,20 +175,15 @@ export default function DocumentEditorPage() {
         payload.append("file", form.file);
       }
 
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error("Login required.");
-      }
-
-      const response = await fetch(`${API_BASE_URL}/documents/${documentId}`, {
+      const response = await authFetch(`${API_BASE_URL}/documents/${documentId}`, {
         method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
         body: payload,
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Session expired. Please login again.");
+        }
         throw new Error("Failed to save document");
       }
 
@@ -197,6 +201,7 @@ export default function DocumentEditorPage() {
         title: saved.title,
         docType: saved.docType,
         templateName: saved.templateName,
+        templateConfig: saved.templateConfig,
         externalLink: saved.externalLink,
         file: null,
       });
@@ -205,6 +210,7 @@ export default function DocumentEditorPage() {
         title: saved.title,
         docType: saved.docType,
         templateName: saved.templateName,
+        templateConfig: saved.templateConfig,
         externalLink: saved.externalLink,
         content: nextEditorContent,
         fileName: "",
@@ -219,7 +225,7 @@ export default function DocumentEditorPage() {
     } finally {
       setIsSaving(false);
     }
-  }, [documentId, editor, document, form.title, form.docType, form.templateName, form.externalLink, form.file, editorContent]);
+  }, [documentId, editor, document, form.title, form.docType, form.templateName, form.templateConfig, form.externalLink, form.file, editorContent]);
 
   useEffect(() => {
     if (!editor) {
@@ -245,13 +251,14 @@ export default function DocumentEditorPage() {
     }, 1500);
 
     return () => window.clearTimeout(timer);
-  }, [editorContent, form.title, form.docType, form.templateName, form.externalLink, form.file, documentId, editor, document, saveDocument]);
+  }, [editorContent, form.title, form.docType, form.templateName, form.templateConfig, form.externalLink, form.file, documentId, editor, document, saveDocument]);
 
   const shouldUseLiveContentPreview = editorContent.trim().length > 0 || (!currentFileUrl && !currentExternalLink);
   const formattedPreviewHtml = getFormattedDocumentHtml({
     title: form.title || document?.title || "Document",
     docType: form.docType,
     templateName: form.templateName,
+    templateConfig: form.templateConfig,
     htmlContent: editorContent,
   });
 
@@ -382,7 +389,13 @@ export default function DocumentEditorPage() {
                     <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Type</span>
                     <select
                       value={form.docType}
-                      onChange={(event) => setForm((prev) => ({ ...prev, docType: event.target.value as DocumentType }))}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          docType: event.target.value as DocumentType,
+                          templateConfig: getDefaultResumeSectionTemplateConfig(prev.templateName),
+                        }))
+                      }
                       className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
                     >
                       <option value="general">General</option>
@@ -395,9 +408,14 @@ export default function DocumentEditorPage() {
                     <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Template</span>
                     <select
                       value={form.templateName}
-                      onChange={(event) =>
-                        setForm((prev) => ({ ...prev, templateName: event.target.value as DocumentTemplateName }))
-                      }
+                      onChange={(event) => {
+                        const nextTemplate = event.target.value as DocumentTemplateName;
+                        setForm((prev) => ({
+                          ...prev,
+                          templateName: nextTemplate,
+                          templateConfig: getDefaultResumeSectionTemplateConfig(nextTemplate),
+                        }));
+                      }}
                       className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
                     >
                       {DOCUMENT_TEMPLATE_OPTIONS.map((template) => (
@@ -407,6 +425,20 @@ export default function DocumentEditorPage() {
                       ))}
                     </select>
                   </label>
+
+                  {form.docType === "resume" && (
+                    <div className="space-y-2 md:col-span-2">
+                      <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Section Layouts</span>
+                      <ResumeSectionStyleFields
+                        value={form.templateConfig}
+                        onChange={(templateConfig) => setForm((prev) => ({ ...prev, templateConfig }))}
+                        containerClassName="grid gap-4 md:grid-cols-2 xl:grid-cols-5"
+                        labelClassName="space-y-2"
+                        selectClassName="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                        hintClassName="text-xs text-zinc-500 dark:text-zinc-400"
+                      />
+                    </div>
+                  )}
 
                   <label className="space-y-2 md:col-span-2">
                     <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">External Link</span>
@@ -509,6 +541,7 @@ export default function DocumentEditorPage() {
                         title: form.title || document.title,
                         docType: form.docType,
                         templateName: form.templateName,
+                        templateConfig: form.templateConfig,
                         htmlContent: editorContent,
                       })
                     }
@@ -524,6 +557,7 @@ export default function DocumentEditorPage() {
                         title: form.title || document.title,
                         docType: form.docType,
                         templateName: form.templateName,
+                        templateConfig: form.templateConfig,
                         htmlContent: editorContent,
                       })
                     }

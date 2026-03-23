@@ -49,3 +49,19 @@ class PasswordResetRequest(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.username} password reset"
+
+
+class UserSecurityState(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        related_name="security_state",
+        on_delete=models.CASCADE,
+    )
+    must_change_password = models.BooleanField(default=False)
+    email_verified_at = models.DateTimeField(null=True, blank=True)
+    phone_number = models.CharField(max_length=32, blank=True)
+    phone_verified_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f"{self.user.username} security state"

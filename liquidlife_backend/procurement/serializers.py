@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from jobs.models import Document
+from jobs.template_config import normalize_document_template_config
 
 
 class ProcurementStatusSerializer(serializers.Serializer):
@@ -22,11 +23,20 @@ class ProcurementBaseSerializer(serializers.Serializer):
         choices=Document.TemplateName.choices,
         default=Document.TemplateName.BALANCED,
     )
+    template_config = serializers.JSONField(required=False, default=dict)
 
     def validate_profile(self, value):
         if not isinstance(value, dict):
             raise serializers.ValidationError("profile must be an object.")
         return value
+
+    def validate(self, attrs):
+        validated = super().validate(attrs)
+        validated["template_config"] = normalize_document_template_config(
+            validated.get("template_config"),
+            validated.get("template_name", Document.TemplateName.BALANCED),
+        )
+        return validated
 
 
 class CoverLetterGenerationSerializer(ProcurementBaseSerializer):
@@ -34,6 +44,10 @@ class CoverLetterGenerationSerializer(ProcurementBaseSerializer):
 
 
 class ResumeGenerationSerializer(ProcurementBaseSerializer):
+    pass
+
+
+class ApplicationPairGenerationSerializer(ProcurementBaseSerializer):
     pass
 
 

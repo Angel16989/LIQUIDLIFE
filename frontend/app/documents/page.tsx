@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import ResumeSectionStyleFields from "@/components/ResumeSectionStyleFields";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { API_BASE_URL } from "@/lib/api";
-import { getAuthToken } from "@/lib/auth";
+import { authFetch } from "@/lib/auth";
 import {
   type DocumentRecord,
   type DocumentType,
@@ -17,9 +18,11 @@ import {
 import {
   DEFAULT_DOCUMENT_TEMPLATE,
   DOCUMENT_TEMPLATE_OPTIONS,
+  getDefaultResumeSectionTemplateConfig,
   getDocumentTemplateLabel,
   getStarterDocumentContent,
   type DocumentTemplateName,
+  type ResumeSectionTemplateConfig,
 } from "@/lib/documentTemplates";
 import { requestNotificationsRefresh } from "@/lib/notifications";
 
@@ -27,6 +30,7 @@ type CreateFormState = {
   title: string;
   docType: DocumentType;
   templateName: DocumentTemplateName;
+  templateConfig: ResumeSectionTemplateConfig;
   content: string;
   externalLink: string;
   file: File | null;
@@ -36,6 +40,7 @@ const initialFormState: CreateFormState = {
   title: "",
   docType: "general",
   templateName: DEFAULT_DOCUMENT_TEMPLATE,
+  templateConfig: getDefaultResumeSectionTemplateConfig(DEFAULT_DOCUMENT_TEMPLATE),
   content: "",
   externalLink: "",
   file: null,
@@ -57,6 +62,7 @@ function buildFormData(form: CreateFormState): FormData {
   data.append("title", form.title.trim());
   data.append("doc_type", form.docType);
   data.append("template_name", form.templateName);
+  data.append("template_config", JSON.stringify(form.templateConfig));
   data.append("content", shouldUseStarter ? getStarterDocumentContent(form.docType, form.title) : normalizedContent);
   data.append("external_link", form.externalLink.trim());
 
@@ -182,19 +188,15 @@ export default function DocumentsPage() {
 
     try {
       setError(null);
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error("Login required.");
-      }
-      const response = await fetch(`${API_BASE_URL}/documents`, {
+      const response = await authFetch(`${API_BASE_URL}/documents`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
         body: buildFormData(form),
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Session expired. Please login again.");
+        }
         throw new Error("Failed to create document");
       }
 
@@ -215,18 +217,14 @@ export default function DocumentsPage() {
 
     try {
       setError(null);
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error("Login required.");
-      }
-      const response = await fetch(`${API_BASE_URL}/documents/${id}`, {
+      const response = await authFetch(`${API_BASE_URL}/documents/${id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (!response.ok && response.status !== 204) {
+        if (response.status === 401) {
+          throw new Error("Session expired. Please login again.");
+        }
         throw new Error("Failed to delete document");
       }
 
@@ -248,6 +246,7 @@ export default function DocumentsPage() {
       title: document.title,
       docType: document.docType,
       templateName: document.templateName,
+      templateConfig: document.templateConfig,
       htmlContent: document.content,
     });
   }
@@ -289,7 +288,11 @@ export default function DocumentsPage() {
               <select
                 value={form.docType}
                 onChange={(event) =>
-                  setForm((prev) => ({ ...prev, docType: event.target.value as DocumentType }))
+                  setForm((prev) => ({
+                    ...prev,
+                    docType: event.target.value as DocumentType,
+                    templateConfig: getDefaultResumeSectionTemplateConfig(prev.templateName),
+                  }))
                 }
                 className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               >
@@ -304,7 +307,14 @@ export default function DocumentsPage() {
               <select
                 value={form.templateName}
                 onChange={(event) =>
-                  setForm((prev) => ({ ...prev, templateName: event.target.value as DocumentTemplateName }))
+                  setForm((prev) => {
+                    const nextTemplate = event.target.value as DocumentTemplateName;
+                    return {
+                      ...prev,
+                      templateName: nextTemplate,
+                      templateConfig: getDefaultResumeSectionTemplateConfig(nextTemplate),
+                    };
+                  })
                 }
                 className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               >
@@ -315,6 +325,19 @@ export default function DocumentsPage() {
                 ))}
               </select>
             </label>
+
+            {form.docType === "resume" && (
+              <div className="md:col-span-2">
+                <ResumeSectionStyleFields
+                  value={form.templateConfig}
+                  onChange={(templateConfig) => setForm((prev) => ({ ...prev, templateConfig }))}
+                  containerClassName="grid gap-4 md:grid-cols-2 xl:grid-cols-5"
+                  labelClassName="space-y-2"
+                  selectClassName="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 transition focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  hintClassName="text-xs text-zinc-500 dark:text-zinc-400"
+                />
+              </div>
+            )}
 
             <label className="space-y-2 md:col-span-2">
               <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">External Link (Optional)</span>

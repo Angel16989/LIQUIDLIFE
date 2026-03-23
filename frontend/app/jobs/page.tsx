@@ -6,6 +6,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { API_BASE_URL } from "@/lib/api";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { authFetch } from "@/lib/auth";
 import { requestNotificationsRefresh } from "@/lib/notifications";
 
 type JobStatus = "Applied" | "Interview" | "Offer" | "Rejected";
@@ -54,7 +55,6 @@ type ApiDocument = {
 
 const JOBS_API_URL = `${API_BASE_URL}/jobs`;
 const DOCUMENTS_API_URL = `${API_BASE_URL}/documents`;
-const AUTH_TOKEN_STORAGE_KEY = "liquid-life-access-token";
 const statusOptions: JobStatus[] = ["Applied", "Interview", "Offer", "Rejected"];
 const filterOptions: JobFilter[] = ["All", ...statusOptions];
 const sortOptions: JobSort[] = ["Newest", "Company A-Z", "Status"];
@@ -142,14 +142,6 @@ function parseSelectionValue(value: string): number | "" {
   return Number.isNaN(numeric) ? "" : numeric;
 }
 
-function getAccessToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
-}
-
 export default function JobsPage() {
   const { isChecking, isAuthenticated } = useRequireAuth();
   const [applications, setApplications] = useState<JobApplication[]>([]);
@@ -185,21 +177,10 @@ export default function JobsPage() {
     try {
       setApiError(null);
       setIsLoading(true);
-      const token = getAccessToken();
-      if (!token) {
-        setApiError("Login required. Save your JWT access token in localStorage key 'liquid-life-access-token'.");
-        setApplications([]);
-        return;
-      }
-
-      const response = await fetch(JOBS_API_URL, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await authFetch(JOBS_API_URL);
       if (!response.ok) {
         if (response.status === 401) {
-          setApiError("Unauthorized. Your token is missing or expired. Please login again.");
+          setApiError("Session expired. Please login again.");
           setApplications([]);
           return;
         }
@@ -217,22 +198,20 @@ export default function JobsPage() {
   }
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     async function loadPageData() {
       await loadJobs();
       try {
-        const token = getAccessToken();
-        if (!token) {
-          setResumes([]);
-          setCoverLetters([]);
-          return;
-        }
-
-        const documentsResponse = await fetch(DOCUMENTS_API_URL, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const documentsResponse = await authFetch(DOCUMENTS_API_URL);
         if (!documentsResponse.ok) {
+          if (documentsResponse.status === 401) {
+            setResumes([]);
+            setCoverLetters([]);
+            return;
+          }
           throw new Error("Failed to fetch documents");
         }
 
@@ -246,7 +225,7 @@ export default function JobsPage() {
     }
 
     void loadPageData();
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -347,24 +326,17 @@ export default function JobsPage() {
 
     try {
       setApiError(null);
-      const token = getAccessToken();
-      if (!token) {
-        setApiError("Login required before creating a job.");
-        return;
-      }
-
-      const response = await fetch(JOBS_API_URL, {
+      const response = await authFetch(JOBS_API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          setApiError("Unauthorized. Please login again.");
+          setApiError("Session expired. Please login again.");
           return;
         }
         throw new Error("Failed to create job");
@@ -429,24 +401,17 @@ export default function JobsPage() {
 
     try {
       setApiError(null);
-      const token = getAccessToken();
-      if (!token) {
-        setApiError("Login required before updating a job.");
-        return;
-      }
-
-      const response = await fetch(`${JOBS_API_URL}/${id}`, {
+      const response = await authFetch(`${JOBS_API_URL}/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(toApiPayload(updatedJob)),
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          setApiError("Unauthorized. Please login again.");
+          setApiError("Session expired. Please login again.");
           return;
         }
         throw new Error("Failed to update job");
@@ -469,21 +434,12 @@ export default function JobsPage() {
 
     try {
       setApiError(null);
-      const token = getAccessToken();
-      if (!token) {
-        setApiError("Login required before deleting a job.");
-        return;
-      }
-
-      const response = await fetch(`${JOBS_API_URL}/${id}`, {
+      const response = await authFetch(`${JOBS_API_URL}/${id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
       if (!response.ok && response.status !== 204) {
         if (response.status === 401) {
-          setApiError("Unauthorized. Please login again.");
+          setApiError("Session expired. Please login again.");
           return;
         }
         throw new Error("Failed to delete job");
@@ -509,25 +465,17 @@ export default function JobsPage() {
 
     try {
       setApiError(null);
-      const token = getAccessToken();
-      if (!token) {
-        setApiError("Login required before changing status.");
-        setApplications((current) => current.map((job) => (job.id === id ? currentJob : job)));
-        return;
-      }
-
-      const response = await fetch(`${JOBS_API_URL}/${id}`, {
+      const response = await authFetch(`${JOBS_API_URL}/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(toApiPayload(updatedJob)),
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          setApiError("Unauthorized. Please login again.");
+          setApiError("Session expired. Please login again.");
           setApplications((current) => current.map((job) => (job.id === id ? currentJob : job)));
           return;
         }

@@ -1,0 +1,228 @@
+.stage {
+  position: relative;
+  isolation: isolate;
+}
+
+.stage::before {
+  content: "";
+  position: absolute;
+  inset: -1.5rem -1rem auto;
+  height: 16rem;
+  z-index: -2;
+  border-radius: 2.5rem;
+  background:
+    radial-gradient(circle at top left, rgba(74, 120, 255, 0.24), transparent 38%),
+    radial-gradient(circle at top right, rgba(65, 199, 184, 0.22), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(224, 233, 255, 0.78));
+  filter: blur(2px);
+}
+
+.stage::after {
+  content: "";
+  position: absolute;
+  inset: 3rem 2rem auto auto;
+  width: 9rem;
+  height: 9rem;
+  z-index: -1;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(93, 132, 255, 0.16), transparent 68%);
+  filter: blur(6px);
+}
+
+.heroCard,
+.depthPanel,
+.previewCard,
+.warningCard,
+.infoPanel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(189, 205, 255, 0.72);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 246, 255, 0.9));
+  box-shadow:
+    0 24px 55px rgba(68, 95, 160, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(177, 194, 235, 0.35);
+}
+
+.heroCard::before,
+.depthPanel::before,
+.previewCard::before,
+.warningCard::before,
+.infoPanel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.45), transparent 50%);
+  pointer-events: none;
+}
+
+.heroCard {
+  border-radius: 2rem;
+  transform: perspective(1400px) rotateX(3deg);
+}
+
+.heroCard::after {
+  content: "";
+  position: absolute;
+  right: -3rem;
+  top: -3rem;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 2rem;
+  background: linear-gradient(135deg, rgba(104, 143, 255, 0.22), rgba(92, 218, 196, 0.12));
+  transform: rotate(18deg);
+  filter: blur(1px);
+  pointer-events: none;
+}
+
+.floatingStatus {
+  min-width: 14rem;
+  border: 1px solid rgba(196, 210, 255, 0.75);
+  border-radius: 1.4rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(232, 240, 255, 0.88));
+  box-shadow:
+    0 18px 34px rgba(79, 104, 168, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+}
+
+.warningRack {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.warningCard {
+  border-radius: 1.5rem;
+  padding: 1.15rem 1.2rem;
+  transform: perspective(1200px) rotateX(2deg);
+}
+
+.warningEyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #52659b;
+}
+
+.alertError,
+.alertSuccess {
+  border-radius: 1.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow:
+    0 18px 34px rgba(84, 102, 148, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+.depthPanel {
+  border-radius: 1.7rem;
+  transform: perspective(1400px) rotateX(1.4deg);
+}
+
+.infoPanel {
+  border-radius: 1.35rem;
+}
+
+.fieldShell {
+  display: block;
+}
+
+.fieldLabel {
+  letter-spacing: 0.02em;
+}
+
+.inputSurface {
+  border: 1px solid rgba(193, 207, 247, 0.9);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 246, 255, 0.92));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 10px 24px rgba(100, 122, 176, 0.08);
+}
+
+.inputSurface:focus {
+  border-color: rgba(95, 77, 147, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    0 0 0 3px rgba(95, 77, 147, 0.12),
+    0 12px 24px rgba(100, 122, 176, 0.14);
+}
+
+.primaryButton,
+.secondaryButton {
+  border-radius: 0.95rem;
+  box-shadow:
+    0 14px 28px rgba(79, 63, 133, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.primaryButton {
+  background: linear-gradient(135deg, #4659d6, #4f3f85 62%, #2d8bb4);
+}
+
+.primaryButton:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.secondaryButton {
+  border: 1px solid rgba(196, 210, 255, 0.8);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(236, 243, 255, 0.9));
+}
+
+.secondaryButton:hover {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(228, 237, 255, 0.94));
+  transform: translateY(-1px);
+}
+
+.previewCard {
+  border-radius: 1.6rem;
+  transform: perspective(1300px) rotateX(1.8deg);
+}
+
+.previewBody {
+  border: 1px solid rgba(194, 206, 241, 0.85);
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 255, 0.95));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    0 10px 26px rgba(90, 110, 168, 0.08);
+}
+
+.signalPill,
+.dangerPill {
+  border: 1px solid rgba(193, 207, 247, 0.92);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(235, 243, 255, 0.9));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+.dangerPill {
+  border-color: rgba(254, 202, 202, 0.9);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 240, 240, 0.94));
+}
+
+.recommendationCard {
+  border-radius: 0.95rem;
+  border: 1px solid rgba(191, 205, 245, 0.78);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 245, 255, 0.92));
+  box-shadow: 0 10px 22px rgba(89, 109, 161, 0.08);
+}
+
+@media (max-width: 1024px) {
+  .heroCard,
+  .depthPanel,
+  .previewCard,
+  .warningCard {
+    transform: none;
+  }
+}
