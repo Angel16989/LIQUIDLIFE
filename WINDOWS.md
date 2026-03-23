@@ -36,6 +36,9 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 SECRET_KEY=replace_with_a_long_random_secret
 DEBUG=True
 ALLOWED_HOSTS=127.0.0.1,localhost
+CSRF_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+CORS_ALLOW_ALL_ORIGINS=False
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/liquidlife
 OPENAI_API_KEY=your_openai_api_key_here
 OPENAI_MODEL=gpt-4o-mini
@@ -47,6 +50,10 @@ Then rerun:
 ```powershell
 .\scripts\dev.ps1
 ```
+
+For live Google login and Gmail approval emails, fill the matching values from [.env.example](.env.example).
+
+If Twilio SMS env vars are blank, the app will use email-only verification and show that SMS is unavailable.
 
 ## First-Time Setup Only
 

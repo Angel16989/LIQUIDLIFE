@@ -6,3 +6,5 @@ djangorestframework-simplejwt>=5.3,<6.0
 google-auth>=2.38,<3.0
 mammoth>=1.8,<2.0
 pypdf>=5.3,<6.0
+gunicorn>=23.0,<24.0
+whitenoise>=6.9,<7.0

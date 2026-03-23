@@ -13,7 +13,7 @@ try {
     $venvDir = Resolve-BackendVenv
     $pythonExe = Get-VenvPythonPath -VenvDir $venvDir
 
-    if (Test-HttpEndpoint -Uri 'http://127.0.0.1:8000/auth/login') {
+    if (Test-HttpEndpoint -Uri 'http://127.0.0.1:8000/healthz') {
         Write-Step 'Backend already running on 127.0.0.1:8000'
     }
     else {
@@ -23,7 +23,7 @@ try {
         $backendStartedByScript = $true
         Write-Step "Backend started (PID: $($backendProcess.Id), log: $backendLogPath)"
 
-        if (-not (Wait-ForEndpoint -Uri 'http://127.0.0.1:8000/auth/login')) {
+        if (-not (Wait-ForEndpoint -Uri 'http://127.0.0.1:8000/healthz')) {
             throw "Backend did not become ready. Check $backendLogPath"
         }
     }

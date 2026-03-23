@@ -115,12 +115,13 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -145,10 +146,14 @@ WSGI_APPLICATION = "liquidlife_backend.wsgi.application"
 ASGI_APPLICATION = "liquidlife_backend.asgi.application"
 
 DATABASE_URL = env("DATABASE_URL", default="")
+DATABASE_CONN_MAX_AGE = int(env("DATABASE_CONN_MAX_AGE", default="60" if not DEBUG else "0"))
 
 if DATABASE_URL:
     DATABASES = {
-        "default": parse_database_url(DATABASE_URL),
+        "default": {
+            **parse_database_url(DATABASE_URL),
+            "CONN_MAX_AGE": DATABASE_CONN_MAX_AGE,
+        },
     }
 else:
     DATABASES = {
@@ -159,6 +164,7 @@ else:
             "PASSWORD": env("POSTGRES_PASSWORD", default="postgres"),
             "HOST": env("POSTGRES_HOST", default="127.0.0.1"),
             "PORT": env("POSTGRES_PORT", default="5432"),
+            "CONN_MAX_AGE": DATABASE_CONN_MAX_AGE,
         }
     }
 
@@ -175,8 +181,17 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+STATIC_ROOT = Path(env("STATIC_ROOT", default=str(BASE_DIR / "staticfiles")))
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+MEDIA_URL = env("MEDIA_URL", default="/media/")
+MEDIA_ROOT = Path(env("MEDIA_ROOT", default=str(BASE_DIR / "media")))
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Keep endpoints exactly as /jobs and /jobs/{id}
@@ -184,6 +199,24 @@ APPEND_SLASH = False
 
 CORS_ALLOW_ALL_ORIGINS = env_bool("CORS_ALLOW_ALL_ORIGINS", default=DEBUG)
 CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", default="")
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", default="")
+
+USE_X_FORWARDED_HOST = env_bool("USE_X_FORWARDED_HOST", default=not DEBUG)
+USE_X_FORWARDED_PROTO = env_bool("USE_X_FORWARDED_PROTO", default=not DEBUG)
+if USE_X_FORWARDED_PROTO:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", default=not DEBUG)
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", default=not DEBUG)
+CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", default=not DEBUG)
+SESSION_COOKIE_SAMESITE = env("SESSION_COOKIE_SAMESITE", default="Lax")
+CSRF_COOKIE_SAMESITE = env("CSRF_COOKIE_SAMESITE", default="Lax")
+SECURE_HSTS_SECONDS = int(env("SECURE_HSTS_SECONDS", default="0" if DEBUG else "31536000"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=not DEBUG)
+SECURE_HSTS_PRELOAD = env_bool("SECURE_HSTS_PRELOAD", default=False)
+SECURE_CONTENT_TYPE_NOSNIFF = env_bool("SECURE_CONTENT_TYPE_NOSNIFF", default=True)
+SECURE_REFERRER_POLICY = env("SECURE_REFERRER_POLICY", default="strict-origin-when-cross-origin")
+X_FRAME_OPTIONS = env("X_FRAME_OPTIONS", default="DENY")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (

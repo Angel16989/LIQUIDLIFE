@@ -1,10 +1,15 @@
 # LiquidLife
 
-## One-Command Local Run
+Liquid Life is a full-stack life management app with:
+- Next.js 16 frontend
+- Django REST backend
+- PostgreSQL
+- JWT auth with admin approval
+- document management and AI-assisted procurement
+
+## Local Run
 
 ### macOS / Linux
-
-From repo root:
 
 ```bash
 ./scripts/dev.sh
@@ -12,44 +17,43 @@ From repo root:
 
 ### Windows PowerShell
 
-From repo root:
-
 ```powershell
 .\scripts\dev.ps1
 ```
 
-What this does automatically:
-- Uses Node.js 20 via `nvm`
-- Installs frontend dependencies
-- Creates/uses backend virtualenv
-- Installs backend dependencies
-- Runs Django migrations
-- Starts backend on `127.0.0.1:8000`
-- Starts Next.js on `localhost:3000`
-- Opens your browser to `http://localhost:3000`
+The dev scripts:
+- load the root `.env`
+- install dependencies
+- run Django migrations
+- start Django on `127.0.0.1:8000`
+- start Next.js on `http://localhost:3000`
 
 ## Environment Setup
 
-Create a `.env` file at the repo root and use [.env.example](.env.example) as the template.
+Create a root `.env` from [.env.example](.env.example):
 
-Minimum local dev values:
+```bash
+cp .env.example .env
+```
+
+Minimum local values:
 
 ```env
 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 SECRET_KEY=replace_with_a_long_random_secret
 DEBUG=True
 ALLOWED_HOSTS=127.0.0.1,localhost
+CSRF_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+CORS_ALLOW_ALL_ORIGINS=False
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/liquidlife
-OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_MODEL=gpt-4o-mini
 LIQUIDLIFE_ADMIN_PASSWORD=change_me_admin_password
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-The local startup scripts load this root `.env` file for both Django and Next.js.
+## Google + Email Setup
 
-## Live Google + Gmail Setup
-
-For production-style auth and approval email flows, set these values in `.env`:
+For live auth and approval email flows:
 
 ```env
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_web_client_id
@@ -61,46 +65,83 @@ EMAIL_PORT=587
 EMAIL_HOST_USER=your-admin@gmail.com
 EMAIL_HOST_PASSWORD=your_gmail_app_password
 DEFAULT_FROM_EMAIL=your-admin@gmail.com
-AUTHORIZATION_EMAIL_ACTION_MAX_AGE_SECONDS=604800
-EMAIL_VERIFICATION_MAX_AGE_SECONDS=604800
-TWILIO_ACCOUNT_SID=your_twilio_account_sid
-TWILIO_AUTH_TOKEN=your_twilio_auth_token
-TWILIO_VERIFY_SERVICE_SID=your_twilio_verify_service_sid
 ```
 
 Notes:
-- `NEXT_PUBLIC_GOOGLE_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_ID` should be the same Google Web client ID.
-- For Gmail SMTP, use an App Password, not your normal Gmail password.
-- `LIQUIDLIFE_ADMIN_NOTIFICATION_EMAILS` receives pending-registration approval emails with direct approve/reject links.
-- Twilio Verify is used for SMS phone verification before non-admin users can access the main app features.
-- Normal registrations require:
-  - admin approval
-  - email verification
-  - phone verification
-- Google sign-in can satisfy email verification automatically when Google is authoritative for that email account.
+- Google frontend and backend client IDs should match.
+- Gmail SMTP should use a Gmail App Password, not the normal Gmail password.
+- New registrations send approval emails to `LIQUIDLIFE_ADMIN_NOTIFICATION_EMAILS`.
 
-Windows-specific notes are also in [WINDOWS.md](WINDOWS.md).
+## SMS Verification
 
-## First-Time Setup Only
+Twilio Verify is supported, but it is optional.
 
-### macOS / Linux
+If these are blank, the app falls back to email-only verification and the UI shows that SMS is unavailable:
 
-If you just want setup without running servers:
+```env
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_VERIFY_SERVICE_SID=
+```
+
+## Production Hosting
+
+The repo is ready for staged or production hosting if you provide real production env values.
+
+Minimum production changes:
+
+```env
+DEBUG=False
+NEXT_PUBLIC_API_URL=https://api.your-domain.com
+FRONTEND_BASE_URL=https://app.your-domain.com
+ALLOWED_HOSTS=api.your-domain.com
+CSRF_TRUSTED_ORIGINS=https://app.your-domain.com
+CORS_ALLOW_ALL_ORIGINS=False
+CORS_ALLOWED_ORIGINS=https://app.your-domain.com
+USE_X_FORWARDED_HOST=True
+USE_X_FORWARDED_PROTO=True
+SECURE_SSL_REDIRECT=True
+SESSION_COOKIE_SECURE=True
+CSRF_COOKIE_SECURE=True
+SECURE_HSTS_SECONDS=31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS=True
+DATABASE_CONN_MAX_AGE=60
+STATIC_ROOT=/var/data/liquidlife/staticfiles
+MEDIA_ROOT=/var/data/liquidlife/media
+```
+
+Deployment notes:
+- Backend health check: `GET /healthz`
+- Backend start command: `gunicorn liquidlife_backend.wsgi:application --bind 0.0.0.0:$PORT`
+- Backend build command: `./build.sh`
+- Backend static files are served with WhiteNoise.
+- Uploaded media needs persistent storage. Do not deploy media to ephemeral disk if you need document persistence.
+
+Recommended split:
+1. Next.js frontend on Vercel
+2. Django backend on Render, Railway, or a VPS
+3. Managed PostgreSQL
+4. Persistent disk or object storage for media
+
+More deployment detail is in [DEPLOY.md](DEPLOY.md).
+
+## Backend Check
 
 ```bash
-./scripts/bootstrap.sh
+cd liquidlife_backend
+./venv/bin/python manage.py check
 ```
 
-### Windows PowerShell
+## Frontend Check
 
-If you just want setup without running servers:
-
-```powershell
-.\scripts\bootstrap.ps1
+```bash
+cd frontend
+source ~/.nvm/nvm.sh
+nvm use 20
+npm run lint
+npm run build
 ```
 
-## Requirements
+## Windows
 
-- `nvm` installed on macOS/Linux, or `nvm-windows` on Windows
-- Python 3.10+
-- PostgreSQL running for your configured DB
+Windows-specific startup notes are in [WINDOWS.md](WINDOWS.md).

@@ -85,7 +85,7 @@ wait_for_backend() {
 
   while [ "$attempt" -le "$max_attempts" ]; do
     local code
-    code="$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8000/auth/login" 2>/dev/null || true)"
+    code="$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8000/healthz" 2>/dev/null || true)"
     if [ -n "$code" ] && [ "$code" != "000" ]; then
       return 0
     fi
@@ -115,7 +115,7 @@ VENV_DIR="$(resolve_backend_venv)"
 
 cd "$BACKEND_DIR"
 BACKEND_STARTED_BY_SCRIPT=0
-backend_code="$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8000/auth/login" 2>/dev/null || true)"
+backend_code="$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8000/healthz" 2>/dev/null || true)"
 if [ -n "$backend_code" ] && [ "$backend_code" != "000" ]; then
   echo "Backend already running on 127.0.0.1:8000"
 else

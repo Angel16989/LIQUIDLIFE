@@ -1,6 +1,7 @@
 node_modules
 .next
 .env
+.emv
 
 # Python
 venv/
@@ -8,6 +9,7 @@ venv/
 __pycache__/
 *.pyc
 liquidlife_backend/media/
+liquidlife_backend/staticfiles/
 
 # Editor
 .vscode/
