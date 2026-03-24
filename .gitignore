@@ -2,6 +2,7 @@ node_modules
 .next
 .env
 .emv
+docker-data/
 
 # Python
 venv/

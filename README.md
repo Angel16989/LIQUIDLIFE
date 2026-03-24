@@ -28,6 +28,31 @@ The dev scripts:
 - start Django on `127.0.0.1:8000`
 - start Next.js on `http://localhost:3000`
 
+## Docker Server Run
+
+If this Linux machine will act as the server, you can run the full stack with Docker Compose:
+
+```bash
+cp .env.example .env
+nano .env
+./scripts/docker-up.sh
+```
+
+This starts:
+- `frontend` on port `3000`
+- `backend` on port `8000`
+- `postgres` inside Docker with persistent storage under `docker-data/`
+- the script uses Docker Compose when available and falls back to plain `docker` on machines without Compose
+
+Important:
+- If you will open the app from another laptop or phone, do not leave `NEXT_PUBLIC_API_URL` as `127.0.0.1`.
+- Set `NEXT_PUBLIC_API_URL` and `FRONTEND_BASE_URL` to this server's IP or domain before running `./scripts/docker-up.sh`.
+- Because `NEXT_PUBLIC_*` values are baked into the frontend build, changing them later requires a rebuild:
+
+```bash
+./scripts/docker-up.sh
+```
+
 ## Environment Setup
 
 Create a root `.env` from [.env.example](.env.example):
@@ -132,6 +157,7 @@ Recommended split:
 
 More deployment detail is in [DEPLOY.md](DEPLOY.md).
 Google sign-in setup is isolated in [GOOGLE_SETUP.md](GOOGLE_SETUP.md).
+Single-machine Docker deployment is documented in [DOCKER.md](DOCKER.md).
 
 ## Backend Check
 

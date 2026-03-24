@@ -10,6 +10,8 @@ Recommended deployment:
 3. Use managed PostgreSQL
 4. Attach persistent storage for Django `MEDIA_ROOT`
 
+If you want to host the whole app on one Linux machine using Docker instead, use [DOCKER.md](DOCKER.md).
+
 Google sign-in setup is documented separately in [GOOGLE_SETUP.md](GOOGLE_SETUP.md).
 
 ## Frontend
