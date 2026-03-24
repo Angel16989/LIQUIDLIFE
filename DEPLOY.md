@@ -95,6 +95,8 @@ EMAIL_HOST_PASSWORD=your_gmail_app_password
 DEFAULT_FROM_EMAIL=your-admin@gmail.com
 OPENAI_API_KEY=your_openai_key
 OPENAI_MODEL=gpt-4o-mini
+ACCOUNT_VERIFICATION_REQUIRED=False
+ACCOUNT_VERIFICATION_NOTICE_ENABLED=True
 ```
 
 Optional SMS env:
@@ -106,6 +108,7 @@ TWILIO_VERIFY_SERVICE_SID=
 ```
 
 If Twilio env vars are blank, the app falls back to email-only verification.
+If `ACCOUNT_VERIFICATION_REQUIRED=False`, users see a soft upcoming-verification notice instead of being blocked.
 
 ## Health Check
 

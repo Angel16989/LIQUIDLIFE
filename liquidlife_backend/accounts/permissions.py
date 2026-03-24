@@ -17,6 +17,9 @@ class IsVerifiedAccountOrAdmin(BasePermission):
         if security_state is None:
             return False
 
+        if not getattr(settings, "ACCOUNT_VERIFICATION_REQUIRED", False):
+            return True
+
         if not security_state.email_verified_at:
             return False
 

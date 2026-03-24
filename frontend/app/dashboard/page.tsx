@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { API_BASE_URL } from "@/lib/api";
 import { authFetch, clearAuthToken } from "@/lib/auth";
+import VerificationComingSoonNotice from "@/components/VerificationComingSoonNotice";
 
 type DashboardLink = {
   title: string;
@@ -88,6 +89,8 @@ export default function DashboardPage() {
             Logout
           </button>
         </header>
+
+        <VerificationComingSoonNotice />
 
         <section className="grid gap-5 md:grid-cols-3">
           {visibleLinks.map((item) => (

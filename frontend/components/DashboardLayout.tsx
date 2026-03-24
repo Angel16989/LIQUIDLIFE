@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
+import VerificationComingSoonNotice from "@/components/VerificationComingSoonNotice";
 
 type DashboardLayoutProps = {
   title: string;
@@ -20,7 +21,10 @@ export default function DashboardLayout({ title, children }: DashboardLayoutProp
         <TopNavbar title={title} onMenuClick={() => setIsSidebarOpen(true)} />
         <main className="mx-auto max-w-7xl p-4 sm:p-6">
           <div className="liquid-template-main border border-white/40 bg-white/75 p-4 shadow-2xl backdrop-blur-sm sm:p-6">
+            <div className="space-y-6">
+              <VerificationComingSoonNotice />
             {children}
+            </div>
           </div>
         </main>
       </div>

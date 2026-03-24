@@ -46,6 +46,7 @@ type GoogleSignInButtonProps = {
     emailVerified: boolean;
     phoneVerified: boolean;
     phoneVerificationConfigured: boolean;
+    verificationRequired: boolean;
   }) => void;
   mode?: "login" | "register";
 };
@@ -111,6 +112,8 @@ export default function GoogleSignInButton({
                 email_verified?: boolean;
                 phone_verified?: boolean;
                 phone_verification_configured?: boolean;
+                verification_required?: boolean;
+                verification_notice_enabled?: boolean;
                 phone_number?: string;
                 detail?: string;
               }
@@ -134,6 +137,8 @@ export default function GoogleSignInButton({
               emailVerified: Boolean(payload.email_verified),
               phoneVerified: Boolean(payload.phone_verified),
               phoneVerificationConfigured: Boolean(payload.phone_verification_configured),
+              verificationRequired: Boolean(payload.verification_required),
+              verificationNoticeEnabled: Boolean(payload.verification_notice_enabled ?? true),
               phoneNumber: payload.phone_number ?? "",
             },
             payload.refresh,
@@ -144,6 +149,7 @@ export default function GoogleSignInButton({
             emailVerified: Boolean(payload.email_verified),
             phoneVerified: Boolean(payload.phone_verified),
             phoneVerificationConfigured: Boolean(payload.phone_verification_configured),
+            verificationRequired: Boolean(payload.verification_required),
           });
         } catch (error) {
           console.error(error);

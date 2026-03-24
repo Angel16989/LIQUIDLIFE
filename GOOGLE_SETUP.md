@@ -2,6 +2,8 @@
 
 These are the remaining Google-side steps before deployment.
 
+If you are deploying today without Google login, leave the Google env vars blank for now. The app will still run, and users will see a soft notice that Gmail/SMS verification will be required soon.
+
 ## 1. Create a Google OAuth Web Client
 
 In Google Cloud Console:

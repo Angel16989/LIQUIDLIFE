@@ -100,6 +100,8 @@ def build_verification_status_payload(user: User) -> dict:
         "phone_number": security_state.phone_number or "",
         "phone_verified": bool(security_state.phone_verified_at),
         "phone_verification_configured": is_phone_verification_configured(),
+        "verification_required": bool(getattr(settings, "ACCOUNT_VERIFICATION_REQUIRED", False)),
+        "verification_notice_enabled": bool(getattr(settings, "ACCOUNT_VERIFICATION_NOTICE_ENABLED", True)),
     }
 
 

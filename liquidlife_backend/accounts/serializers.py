@@ -164,6 +164,8 @@ class VerificationStatusSerializer(serializers.Serializer):
     phone_number = serializers.CharField(allow_blank=True)
     phone_verified = serializers.BooleanField()
     phone_verification_configured = serializers.BooleanField()
+    verification_required = serializers.BooleanField()
+    verification_notice_enabled = serializers.BooleanField()
 
 
 class AccountAuthorizationRequestSerializer(serializers.ModelSerializer):

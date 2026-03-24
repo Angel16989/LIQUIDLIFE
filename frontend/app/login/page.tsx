@@ -90,6 +90,8 @@ export default function LoginPage() {
         email_verified?: boolean;
         phone_verified?: boolean;
         phone_verification_configured?: boolean;
+        verification_required?: boolean;
+        verification_notice_enabled?: boolean;
         phone_number?: string;
       };
       setAuthSession(
@@ -101,6 +103,8 @@ export default function LoginPage() {
           emailVerified: Boolean(data.email_verified),
           phoneVerified: Boolean(data.phone_verified),
           phoneVerificationConfigured: Boolean(data.phone_verification_configured),
+          verificationRequired: Boolean(data.verification_required),
+          verificationNoticeEnabled: Boolean(data.verification_notice_enabled ?? true),
           phoneNumber: data.phone_number ?? "",
         },
         data.refresh,
@@ -114,6 +118,7 @@ export default function LoginPage() {
 
       if (
         !data.is_admin &&
+        data.verification_required &&
         (!data.email_verified || (data.phone_verification_configured && !data.phone_verified))
       ) {
         router.replace("/verify-account");
@@ -180,7 +185,14 @@ export default function LoginPage() {
 
         <GoogleSignInButton
           onError={(message) => setError(message)}
-          onSuccess={({ isAdmin, mustChangePassword, emailVerified, phoneVerified, phoneVerificationConfigured }) => {
+          onSuccess={({
+            isAdmin,
+            mustChangePassword,
+            emailVerified,
+            phoneVerified,
+            phoneVerificationConfigured,
+            verificationRequired,
+          }) => {
             if (isAdmin) {
               router.replace("/admin-panel");
               return;
@@ -189,7 +201,7 @@ export default function LoginPage() {
               router.replace("/change-password?required=1");
               return;
             }
-            if (!emailVerified || (phoneVerificationConfigured && !phoneVerified)) {
+            if (verificationRequired && (!emailVerified || (phoneVerificationConfigured && !phoneVerified))) {
               router.replace("/verify-account");
               return;
             }

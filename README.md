@@ -71,6 +71,7 @@ Notes:
 - Google frontend and backend client IDs should match.
 - Gmail SMTP should use a Gmail App Password, not the normal Gmail password.
 - New registrations send approval emails to `LIQUIDLIFE_ADMIN_NOTIFICATION_EMAILS`.
+- Google login can stay disabled for deployment if the Google env vars are blank.
 
 ## SMS Verification
 
@@ -83,6 +84,12 @@ TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_VERIFY_SERVICE_SID=
 ```
+
+Current default rollout:
+- `ACCOUNT_VERIFICATION_REQUIRED=False`
+- `ACCOUNT_VERIFICATION_NOTICE_ENABLED=True`
+
+That means users see a soft popup warning that Gmail and SMS verification will be required soon, but access is not blocked yet.
 
 ## Production Hosting
 

@@ -12,6 +12,8 @@ type VerificationStatus = {
   phone_number: string;
   phone_verified: boolean;
   phone_verification_configured: boolean;
+  verification_required: boolean;
+  verification_notice_enabled: boolean;
 };
 
 export default function VerifyAccountPage() {
@@ -36,12 +38,14 @@ export default function VerifyAccountPage() {
       emailVerified: nextStatus.email_verified,
       phoneVerified: nextStatus.phone_verified,
       phoneVerificationConfigured: nextStatus.phone_verification_configured,
+      verificationRequired: nextStatus.verification_required,
+      verificationNoticeEnabled: nextStatus.verification_notice_enabled,
       phoneNumber: nextStatus.phone_number || "",
     });
     const isFullyVerified =
       nextStatus.email_verified &&
       (!nextStatus.phone_verification_configured || nextStatus.phone_verified);
-    if (isFullyVerified) {
+    if (nextStatus.verification_required && isFullyVerified) {
       router.replace("/dashboard");
     }
   }, [router]);
@@ -167,9 +171,13 @@ export default function VerifyAccountPage() {
         <header className="ll-panel flex flex-wrap items-center justify-between gap-3 p-6">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] ll-muted">Account Verification</p>
-            <h1 className="mt-2 text-3xl font-semibold ll-title">Finish account verification</h1>
+            <h1 className="mt-2 text-3xl font-semibold ll-title">
+              {status?.verification_required ? "Finish account verification" : "Update verification details"}
+            </h1>
             <p className="mt-3 text-sm ll-muted">
-              You can sign in, but core app features stay locked until the required checks are complete.
+              {status?.verification_required
+                ? "You can sign in, but core app features stay locked until the required checks are complete."
+                : "Verification is optional for now, but Gmail and SMS verification will be required in a future release. Update your details early to avoid disruption."}
             </p>
           </div>
           <button

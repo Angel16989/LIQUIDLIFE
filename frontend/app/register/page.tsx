@@ -143,7 +143,14 @@ export default function RegisterPage() {
             setError(null);
             setInfo(message);
           }}
-          onSuccess={({ isAdmin, mustChangePassword, emailVerified, phoneVerified, phoneVerificationConfigured }) => {
+          onSuccess={({
+            isAdmin,
+            mustChangePassword,
+            emailVerified,
+            phoneVerified,
+            phoneVerificationConfigured,
+            verificationRequired,
+          }) => {
             if (isAdmin) {
               router.replace("/admin-panel");
               return;
@@ -152,7 +159,7 @@ export default function RegisterPage() {
               router.replace("/change-password?required=1");
               return;
             }
-            if (!emailVerified || (phoneVerificationConfigured && !phoneVerified)) {
+            if (verificationRequired && (!emailVerified || (phoneVerificationConfigured && !phoneVerified))) {
               router.replace("/verify-account");
               return;
             }

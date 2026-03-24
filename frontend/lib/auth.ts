@@ -13,6 +13,8 @@ export type AuthUserMeta = {
   emailVerified?: boolean;
   phoneVerified?: boolean;
   phoneVerificationConfigured?: boolean;
+  verificationRequired?: boolean;
+  verificationNoticeEnabled?: boolean;
   phoneNumber?: string;
 };
 
@@ -173,6 +175,10 @@ export function isPhoneVerifiedForCurrentUser(): boolean {
 export function mustCompleteAccountVerification(): boolean {
   const userMeta = getCurrentUserMeta();
   if (!userMeta || userMeta.isAdmin) {
+    return false;
+  }
+
+  if (!userMeta.verificationRequired) {
     return false;
   }
 
