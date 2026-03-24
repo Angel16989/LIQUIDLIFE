@@ -10,6 +10,8 @@ Recommended deployment:
 3. Use managed PostgreSQL
 4. Attach persistent storage for Django `MEDIA_ROOT`
 
+Google sign-in setup is documented separately in [GOOGLE_SETUP.md](GOOGLE_SETUP.md).
+
 ## Frontend
 
 Project root:

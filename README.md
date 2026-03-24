@@ -124,6 +124,7 @@ Recommended split:
 4. Persistent disk or object storage for media
 
 More deployment detail is in [DEPLOY.md](DEPLOY.md).
+Google sign-in setup is isolated in [GOOGLE_SETUP.md](GOOGLE_SETUP.md).
 
 ## Backend Check
 
