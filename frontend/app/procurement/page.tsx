@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import styles from "./procurement.module.css";
@@ -330,11 +331,11 @@ function ResumeIntakeModal({
   onNeedsImprovement: () => void;
   isParsing: boolean;
 }) {
-  if (!isVisible) {
+  if (!isVisible || typeof document === "undefined") {
     return null;
   }
 
-  return (
+  return createPortal(
     <div className={styles.modalScrim}>
       <div className={styles.modalCard}>
         <p className={styles.modalEyebrow}>Quick start</p>
@@ -360,7 +361,8 @@ function ResumeIntakeModal({
         </div>
         <p className="mt-4 text-xs ll-muted">Supported formats: PDF, DOCX, TXT.</p>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -506,6 +508,19 @@ export default function ProcurementPage() {
 
     return () => window.clearTimeout(timer);
   }, [procurementUnlocked]);
+
+  useEffect(() => {
+    if (!showResumePrompt) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showResumePrompt]);
 
   const resumeDocuments = useMemo(
     () => documents.filter((document) => document.docType === "resume"),
