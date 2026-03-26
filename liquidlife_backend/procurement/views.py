@@ -11,12 +11,15 @@ from .serializers import (
     AtsReviewSerializer,
     CoverLetterGenerationSerializer,
     ProcurementStatusSerializer,
+    ResumeAutofillSerializer,
     ResumeGenerationSerializer,
 )
 from .services import (
     ProcurementAIConfigurationError,
     ProcurementAIError,
     ats_review,
+    extract_resume_profile,
+    extract_resume_text,
     generate_application_documents,
     generate_cover_letter,
     generate_resume,
@@ -163,3 +166,22 @@ class ProcurementATSAPIView(APIView):
             resume_content=resume_content,
         )
         return Response(payload, status=status.HTTP_200_OK)
+
+
+class ProcurementResumeAutofillAPIView(APIView):
+    permission_classes = [IsVerifiedAccountOrAdmin]
+
+    def post(self, request):
+        serializer = ResumeAutofillSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        resume_file = serializer.validated_data["resume"]
+        resume_text = extract_resume_text(resume_file)
+        if not resume_text.strip():
+            return Response(
+                {"detail": "Could not extract readable content from that resume."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        profile = extract_resume_profile(resume_text)
+        return Response({"profile": profile}, status=status.HTTP_200_OK)

@@ -45,6 +45,10 @@ export type GeneratedApplicationPairPayload = {
   cover_letter: GeneratedDocumentPayload;
 };
 
+export type ResumeAutofillPayload = {
+  profile: ProcurementProfile;
+};
+
 export type AtsReviewPayload = {
   overall_score: number;
   keyword_score: number;
@@ -294,6 +298,23 @@ export async function generateResume(body: Record<string, unknown>) {
 
 export async function reviewResumeAts(body: Record<string, unknown>) {
   return fetchProcurement<AtsReviewPayload>("ats-review", body, "POST");
+}
+
+export async function parseResumeToProfile(file: File) {
+  const formData = new FormData();
+  formData.append("resume", file);
+
+  const response = await authFetch(`${API_BASE_URL}/procurement/parse-resume`, {
+    method: "POST",
+    body: formData,
+  });
+
+  const payload = (await response.json().catch(() => null)) as { detail?: string; profile?: ProcurementProfile } | null;
+  if (!response.ok || !payload?.profile) {
+    throw new Error(payload?.detail || "Failed to parse the uploaded resume.");
+  }
+
+  return payload as ResumeAutofillPayload;
 }
 
 export async function saveGeneratedDocument(document: GeneratedDocumentPayload) {

@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import ResumeSectionStyleFields from "@/components/ResumeSectionStyleFields";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import styles from "./procurement.module.css";
 import { fetchDocuments, getFormattedDocumentHtml, type DocumentRecord } from "@/lib/documents";
@@ -19,6 +18,7 @@ import {
   fetchProcurementStatus,
   generateApplicationPair,
   loadStoredProcurementProfile,
+  parseResumeToProfile,
   reviewResumeAts,
   saveGeneratedDocument,
   saveStoredProcurementProfile,
@@ -29,29 +29,124 @@ import {
   type ProcurementStatus,
 } from "@/lib/procurement";
 
-type ToneOption = "professional" | "warm" | "direct";
+type ResumeStylePresetId =
+  | "modern-tech"
+  | "corporate-clean"
+  | "startup-style"
+  | "minimal-ats"
+  | "creative-professional"
+  | "classic-executive";
 
-const toneOptions: ToneOption[] = ["professional", "warm", "direct"];
-const resumeStyleOptions: Array<{ value: DocumentTemplateName; label: string; description: string }> = [
+type ResumeStylePreset = {
+  id: ResumeStylePresetId;
+  label: string;
+  description: string;
+  templateName: DocumentTemplateName;
+  templateConfig: ResumeSectionTemplateConfig;
+  previewClassName: string;
+};
+
+const resumeStylePresets: ResumeStylePreset[] = [
   {
-    value: "balanced",
-    label: "Feature Stack",
-    description: "Bold one-column layout with strong summary and experience cards.",
+    id: "modern-tech",
+    label: "Modern Tech Resume",
+    description: "Bold top summary, feature-card experience, crisp skill tokens, and product-focused highlights.",
+    templateName: "balanced",
+    templateConfig: {
+      summaryStyle: "spotlight",
+      experienceStyle: "cards",
+      skillsStyle: "chips",
+      projectsStyle: "tiles",
+      educationStyle: "cards",
+    },
+    previewClassName: "styleModernTech",
   },
   {
-    value: "executive",
-    label: "Sidebar Pro",
-    description: "Two-column layout with a left rail for skills and education.",
+    id: "corporate-clean",
+    label: "Corporate Clean",
+    description: "Structured and polished with stronger hierarchy for enterprise and operations-facing roles.",
+    templateName: "executive",
+    templateConfig: {
+      summaryStyle: "split",
+      experienceStyle: "timeline",
+      skillsStyle: "list",
+      projectsStyle: "list",
+      educationStyle: "list",
+    },
+    previewClassName: "styleCorporateClean",
   },
   {
-    value: "minimal",
-    label: "Signal Compact",
-    description: "Sharper modern layout with tighter blocks and faster scanning.",
+    id: "startup-style",
+    label: "Startup Style",
+    description: "Faster scan pattern with bold proof points and more visual energy for product-heavy teams.",
+    templateName: "balanced",
+    templateConfig: {
+      summaryStyle: "split",
+      experienceStyle: "cards",
+      skillsStyle: "grid",
+      projectsStyle: "highlights",
+      educationStyle: "cards",
+    },
+    previewClassName: "styleStartupStyle",
+  },
+  {
+    id: "minimal-ats",
+    label: "Minimal ATS",
+    description: "Tighter layout built to stay plain, direct, and easy for recruiters and ATS systems to scan.",
+    templateName: "minimal",
+    templateConfig: {
+      summaryStyle: "compact",
+      experienceStyle: "compact",
+      skillsStyle: "chips",
+      projectsStyle: "list",
+      educationStyle: "list",
+    },
+    previewClassName: "styleMinimalAts",
+  },
+  {
+    id: "creative-professional",
+    label: "Creative Professional",
+    description: "Clean but more expressive layout for creative, digital, marketing, and design-adjacent work.",
+    templateName: "balanced",
+    templateConfig: {
+      summaryStyle: "spotlight",
+      experienceStyle: "cards",
+      skillsStyle: "grid",
+      projectsStyle: "tiles",
+      educationStyle: "cards",
+    },
+    previewClassName: "styleCreativeProfessional",
+  },
+  {
+    id: "classic-executive",
+    label: "Classic Executive",
+    description: "More traditional executive framing with strong structure, restrained styling, and senior tone.",
+    templateName: "executive",
+    templateConfig: {
+      summaryStyle: "split",
+      experienceStyle: "timeline",
+      skillsStyle: "list",
+      projectsStyle: "highlights",
+      educationStyle: "timeline",
+    },
+    previewClassName: "styleClassicExecutive",
   },
 ];
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+function FieldLabel({ children }: { children: ReactNode }) {
   return <span className={`${styles.fieldLabel} text-sm font-medium ll-title`}>{children}</span>;
+}
+
+function FormCard({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <label className={styles.formCard}>
+      <div className={styles.formCardHeader}>
+        <FieldLabel>{label}</FieldLabel>
+        {hint ? <p className="text-xs ll-muted">{hint}</p> : null}
+      </div>
+      {children}
+    </label>
+  );
 }
 
 function ProfileInput({
@@ -59,23 +154,24 @@ function ProfileInput({
   value,
   onChange,
   placeholder,
+  hint,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
+  hint?: string;
 }) {
   return (
-    <label className={`${styles.fieldShell} space-y-2`}>
-      <FieldLabel>{label}</FieldLabel>
+    <FormCard label={label} hint={hint}>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
         type="text"
         placeholder={placeholder}
-        className={`${styles.inputSurface} w-full px-3 py-2 text-sm ll-title outline-none transition focus:ring-2`}
+        className={`${styles.inputSurface} w-full px-3 py-3 text-sm ll-title outline-none transition focus:ring-2`}
       />
-    </label>
+    </FormCard>
   );
 }
 
@@ -85,24 +181,25 @@ function ProfileTextarea({
   onChange,
   placeholder,
   rows = 4,
+  hint,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   rows?: number;
+  hint?: string;
 }) {
   return (
-    <label className={`${styles.fieldShell} space-y-2`}>
-      <FieldLabel>{label}</FieldLabel>
+    <FormCard label={label} hint={hint}>
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className={`${styles.inputSurface} w-full px-3 py-2 text-sm ll-title outline-none transition focus:ring-2`}
+        className={`${styles.inputSurface} w-full px-3 py-3 text-sm ll-title outline-none transition focus:ring-2`}
       />
-    </label>
+    </FormCard>
   );
 }
 
@@ -113,6 +210,7 @@ function GeneratedPreview({
   onSave,
   saveLabel,
   isSaving,
+  helper,
 }: {
   label: string;
   result: GeneratedDocumentPayload | null;
@@ -120,22 +218,31 @@ function GeneratedPreview({
   onSave: () => Promise<void>;
   saveLabel: string;
   isSaving: boolean;
+  helper: string;
 }) {
   if (!result) {
     return (
-      <article className={`${styles.previewCard} ll-panel-soft p-5`}>
-        <p className="text-sm font-semibold ll-title">{label}</p>
-        <p className="mt-3 text-sm ll-muted">No generated draft yet.</p>
+      <article className={`${styles.previewCard} ll-panel p-5`}>
+        <div className={styles.previewHeader}>
+          <div>
+            <p className="text-sm font-semibold ll-title">{label}</p>
+            <p className="mt-1 text-sm ll-muted">{helper}</p>
+          </div>
+        </div>
+        <div className={styles.previewEmpty}>
+          <p className="text-sm ll-muted">Generate a draft to see the preview here.</p>
+        </div>
       </article>
     );
   }
 
   return (
-    <article className={`${styles.previewCard} ll-panel-soft p-5`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <article className={`${styles.previewCard} ll-panel p-5`}>
+      <div className={styles.previewHeader}>
         <div>
           <p className="text-sm font-semibold ll-title">{label}</p>
           <h3 className="mt-2 text-xl font-semibold ll-title">{result.title}</h3>
+          <p className="mt-2 text-sm ll-muted">{helper}</p>
         </div>
         <button
           type="button"
@@ -152,22 +259,9 @@ function GeneratedPreview({
         dangerouslySetInnerHTML={{ __html: renderedHtml }}
       />
 
-      {result.highlights && result.highlights.length > 0 && (
-        <div className="mt-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] ll-muted">Key Matches</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {result.highlights.map((item) => (
-              <span key={item} className={`${styles.signalPill} rounded-full px-3 py-1 text-xs ll-title`}>
-                {item}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
       {result.keywords_targeted && result.keywords_targeted.length > 0 && (
         <div className="mt-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] ll-muted">Target Keywords</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] ll-muted">Target keywords</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {result.keywords_targeted.map((item) => (
               <span key={item} className={`${styles.signalPill} rounded-full px-3 py-1 text-xs ll-title`}>
@@ -181,21 +275,118 @@ function GeneratedPreview({
   );
 }
 
+function ResumeStyleCard({
+  preset,
+  isActive,
+  onSelect,
+}: {
+  preset: ResumeStylePreset;
+  isActive: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`${styles.styleCard} ${styles[preset.previewClassName]} ${isActive ? styles.styleCardActive : ""}`}
+    >
+      <div className={styles.stylePreviewCanvas}>
+        <div className={styles.stylePreviewSheet}>
+          <div className={styles.stylePreviewHeader} />
+          <div className={styles.stylePreviewSummary} />
+          <div className={styles.stylePreviewBody}>
+            <span />
+            <span />
+            <span />
+          </div>
+          <div className={styles.stylePreviewFooter}>
+            <span />
+            <span />
+            <span />
+          </div>
+        </div>
+      </div>
+      <div className={styles.styleCardCopy}>
+        <div className={styles.styleCardTopRow}>
+          <span className={styles.styleCardLabel}>{preset.label}</span>
+          {isActive ? <span className={styles.styleBadge}>Selected</span> : null}
+        </div>
+        <p className="text-sm ll-muted">{preset.description}</p>
+      </div>
+    </button>
+  );
+}
+
+function ResumeIntakeModal({
+  isVisible,
+  onUpload,
+  onBuildFromScratch,
+  onNeedsImprovement,
+  isParsing,
+}: {
+  isVisible: boolean;
+  onUpload: () => void;
+  onBuildFromScratch: () => void;
+  onNeedsImprovement: () => void;
+  isParsing: boolean;
+}) {
+  if (!isVisible) {
+    return null;
+  }
+
+  return (
+    <div className={styles.modalScrim}>
+      <div className={styles.modalCard}>
+        <p className={styles.modalEyebrow}>Quick start</p>
+        <h2 className="mt-2 text-3xl font-semibold ll-title">Do you already have a resume?</h2>
+        <p className="mt-3 text-sm leading-7 ll-muted">
+          Uploading one lets Liquid Life extract the key details, auto-fill the form, and save you the manual typing.
+        </p>
+        <div className={styles.modalOptions}>
+          <button
+            type="button"
+            onClick={onUpload}
+            disabled={isParsing}
+            className={`${styles.primaryButton} px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70`}
+          >
+            {isParsing ? "Parsing resume..." : "Upload Resume"}
+          </button>
+          <button type="button" onClick={onBuildFromScratch} className={`${styles.secondaryButton} px-4 py-3 text-sm font-semibold ll-title transition`}>
+            Build From Scratch
+          </button>
+          <button type="button" onClick={onNeedsImprovement} className={`${styles.secondaryButton} px-4 py-3 text-sm font-semibold ll-title transition`}>
+            I Have One But It&apos;s Not Good
+          </button>
+        </div>
+        <p className="mt-4 text-xs ll-muted">Supported formats: PDF, DOCX, TXT.</p>
+      </div>
+    </div>
+  );
+}
+
+function mergeProfiles(current: ProcurementProfile, incoming: ProcurementProfile): ProcurementProfile {
+  const next = { ...current };
+  (Object.keys(current) as Array<keyof ProcurementProfile>).forEach((key) => {
+    const value = incoming[key];
+    if (typeof value === "string" && value.trim()) {
+      next[key] = value;
+    }
+  });
+  return next;
+}
+
 export default function ProcurementPage() {
   const router = useRouter();
   const { isChecking, isAuthenticated } = useRequireAuth();
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const [userMeta, setUserMeta] = useState(() => getCurrentUserMeta());
   const [profile, setProfile] = useState<ProcurementProfile>(DEFAULT_PROCUREMENT_PROFILE);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [status, setStatus] = useState<ProcurementStatus | null>(null);
-  const [selectedResumeId, setSelectedResumeId] = useState<string>("");
+  const [selectedResumeId, setSelectedResumeId] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [targetRole, setTargetRole] = useState("");
-  const [tone, setTone] = useState<ToneOption>("professional");
-  const [resumeStyle, setResumeStyle] = useState<DocumentTemplateName>("balanced");
-  const [resumeTemplateConfig, setResumeTemplateConfig] = useState<ResumeSectionTemplateConfig>(
-    getDefaultResumeSectionTemplateConfig("balanced"),
-  );
+  const [selectedStyleId, setSelectedStyleId] = useState<ResumeStylePresetId>("modern-tech");
   const [jobDescription, setJobDescription] = useState("");
   const [coverLetterResult, setCoverLetterResult] = useState<GeneratedDocumentPayload | null>(null);
   const [resumeResult, setResumeResult] = useState<GeneratedDocumentPayload | null>(null);
@@ -208,6 +399,13 @@ export default function ProcurementPage() {
   const [isSavingCoverLetter, setIsSavingCoverLetter] = useState(false);
   const [isSavingResume, setIsSavingResume] = useState(false);
   const [hasLoadedLocalProfile, setHasLoadedLocalProfile] = useState(false);
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [isParsingResume, setIsParsingResume] = useState(false);
+
+  const selectedStyle = useMemo(
+    () => resumeStylePresets.find((preset) => preset.id === selectedStyleId) ?? resumeStylePresets[0],
+    [selectedStyleId],
+  );
 
   useEffect(() => subscribeToAuthTokenChanges(() => setUserMeta(getCurrentUserMeta())), []);
 
@@ -226,13 +424,12 @@ export default function ProcurementPage() {
         if (!isActive) {
           return;
         }
-
         setProfile(saved ?? DEFAULT_PROCUREMENT_PROFILE);
       } catch (loadError) {
         console.error(loadError);
         if (isActive) {
           setProfile(DEFAULT_PROCUREMENT_PROFILE);
-          setError("Could not decrypt the saved Procurement profile. Starting with a blank profile.");
+          setError("Could not decrypt the saved profile. Starting with a blank profile.");
         }
       } finally {
         if (isActive) {
@@ -262,7 +459,7 @@ export default function ProcurementPage() {
       } catch (saveError) {
         console.error(saveError);
         if (isActive) {
-          setError("Could not save the encrypted Procurement profile in this browser.");
+          setError("Could not save the encrypted profile in this browser.");
         }
       }
     }
@@ -287,7 +484,7 @@ export default function ProcurementPage() {
         setStatus(loadedStatus);
       } catch (loadError) {
         console.error(loadError);
-        setError(loadError instanceof Error ? loadError.message : "Could not load Procurement.");
+        setError(loadError instanceof Error ? loadError.message : "Could not load the resume builder.");
       } finally {
         setIsLoading(false);
       }
@@ -296,29 +493,36 @@ export default function ProcurementPage() {
     void loadPageData();
   }, [isAuthenticated]);
 
+  const procurementUnlocked = Boolean(isAuthenticated && userMeta && !userMeta.isAdmin);
+
+  useEffect(() => {
+    if (!procurementUnlocked) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowResumePrompt(true);
+    }, 850);
+
+    return () => window.clearTimeout(timer);
+  }, [procurementUnlocked]);
+
   const resumeDocuments = useMemo(
     () => documents.filter((document) => document.docType === "resume"),
     [documents],
   );
 
-  const procurementUnlocked = Boolean(isAuthenticated && userMeta && !userMeta.isAdmin);
+  const styledResumePayload = useMemo(() => {
+    if (!resumeResult) {
+      return null;
+    }
 
-  function updateProfile<K extends keyof ProcurementProfile>(key: K, value: ProcurementProfile[K]) {
-    setProfile((current) => ({ ...current, [key]: value }));
-  }
-
-  function buildGenerationPayload() {
     return {
-      profile,
-      job_description: jobDescription,
-      resume_document_id: selectedResumeId ? Number(selectedResumeId) : null,
-      company_name: companyName,
-      target_role: targetRole,
-      tone,
-      template_name: resumeStyle,
-      template_config: resumeTemplateConfig,
-    };
-  }
+      ...resumeResult,
+      template_name: selectedStyle.templateName,
+      template_config: selectedStyle.templateConfig,
+    } as GeneratedDocumentPayload;
+  }, [resumeResult, selectedStyle]);
 
   const renderedCoverLetterHtml = useMemo(() => {
     if (!coverLetterResult) {
@@ -335,18 +539,35 @@ export default function ProcurementPage() {
   }, [coverLetterResult]);
 
   const renderedResumeHtml = useMemo(() => {
-    if (!resumeResult) {
+    if (!styledResumePayload) {
       return "";
     }
 
     return getFormattedDocumentHtml({
-      title: resumeResult.title,
-      docType: resumeResult.doc_type,
-      templateName: resumeResult.template_name,
-      templateConfig: (resumeResult.template_config as ResumeSectionTemplateConfig) || resumeTemplateConfig,
-      htmlContent: resumeResult.content,
+      title: styledResumePayload.title,
+      docType: styledResumePayload.doc_type,
+      templateName: styledResumePayload.template_name,
+      templateConfig: styledResumePayload.template_config as ResumeSectionTemplateConfig,
+      htmlContent: styledResumePayload.content,
     });
-  }, [resumeResult, resumeTemplateConfig]);
+  }, [styledResumePayload]);
+
+  function updateProfile<K extends keyof ProcurementProfile>(key: K, value: ProcurementProfile[K]) {
+    setProfile((current) => ({ ...current, [key]: value }));
+  }
+
+  function buildGenerationPayload() {
+    return {
+      profile,
+      job_description: jobDescription,
+      resume_document_id: selectedResumeId ? Number(selectedResumeId) : null,
+      company_name: companyName,
+      target_role: targetRole,
+      tone: "professional",
+      template_name: selectedStyle.templateName,
+      template_config: selectedStyle.templateConfig,
+    };
+  }
 
   async function handleGenerateApplicationPair(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -364,7 +585,7 @@ export default function ProcurementPage() {
       setResumeResult(payload.resume);
     } catch (submitError) {
       console.error(submitError);
-      setError(submitError instanceof Error ? submitError.message : "Failed to generate resume and cover letter.");
+      setError(submitError instanceof Error ? submitError.message : "Failed to generate the application documents.");
     } finally {
       setIsGeneratingDocuments(false);
     }
@@ -375,7 +596,7 @@ export default function ProcurementPage() {
       setError("Add the job description first.");
       return;
     }
-    if (!selectedResumeId && !(resumeResult?.content || "").trim()) {
+    if (!selectedResumeId && !(styledResumePayload?.content || "").trim()) {
       setError("Choose a resume or generate one first.");
       return;
     }
@@ -387,7 +608,7 @@ export default function ProcurementPage() {
       const payload = await reviewResumeAts({
         job_description: jobDescription,
         resume_document_id: selectedResumeId ? Number(selectedResumeId) : null,
-        resume_content: selectedResumeId ? "" : resumeResult?.content || "",
+        resume_content: selectedResumeId ? "" : styledResumePayload?.content || "",
       });
       setAtsResult(payload);
     } catch (submitError) {
@@ -409,9 +630,31 @@ export default function ProcurementPage() {
       router.push(`/documents/${documentId}`);
     } catch (saveError) {
       console.error(saveError);
-      setError(saveError instanceof Error ? saveError.message : "Failed to save generated document.");
+      setError(saveError instanceof Error ? saveError.message : "Failed to save the generated document.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleResumeUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      setIsParsingResume(true);
+      setError(null);
+      const payload = await parseResumeToProfile(file);
+      setProfile((current) => mergeProfiles(current, payload.profile));
+      setSuccess("Resume uploaded. The form has been auto-filled and is ready for review.");
+      setShowResumePrompt(false);
+    } catch (uploadError) {
+      console.error(uploadError);
+      setError(uploadError instanceof Error ? uploadError.message : "Could not parse the uploaded resume.");
+    } finally {
+      setIsParsingResume(false);
+      event.target.value = "";
     }
   }
 
@@ -426,13 +669,13 @@ export default function ProcurementPage() {
   if (!procurementUnlocked) {
     return (
       <DashboardLayout title="Procurement">
-        <section className={`${styles.heroCard} ll-panel p-6`}>
+        <section className={`${styles.lockedCard} ll-panel p-6`}>
           <p className="text-xs uppercase tracking-[0.22em] ll-muted">Procurement</p>
           <h1 className="mt-2 text-3xl font-semibold ll-title">This workspace is for approved member accounts.</h1>
           <p className="mt-3 text-sm ll-muted">
             Admin accounts manage approvals from the admin dashboard. Approved users unlock Procurement automatically on their next sign-in.
           </p>
-          <Link href="/admin-panel" className="mt-5 inline-flex rounded-lg bg-[#4f3f85] px-3 py-2 text-sm font-semibold text-white transition hover:brightness-110">
+          <Link href="/admin-panel" className={`${styles.primaryButton} mt-5 inline-flex px-3 py-2 text-sm font-semibold text-white transition`}>
             Go to Admin Panel
           </Link>
         </section>
@@ -442,48 +685,62 @@ export default function ProcurementPage() {
 
   return (
     <DashboardLayout title="Procurement">
-      <div className={`${styles.stage} space-y-6`}>
-        <header className={`${styles.heroCard} ll-panel flex flex-wrap items-start justify-between gap-4 p-6`}>
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] ll-muted">Procurement</p>
-            <h1 className="mt-2 text-3xl font-semibold ll-title">Personal knowledge, AI tailoring, and ATS review</h1>
-            <p className="mt-3 max-w-3xl text-sm ll-muted">
-              Your profile stays on this device under your account in browser storage. When you generate a document, only the profile,
-              job description, and selected resume context are sent to the backend AI endpoint.
-            </p>
-          </div>
+      <div className={styles.stage}>
+        <input
+          ref={uploadInputRef}
+          type="file"
+          accept=".pdf,.docx,.txt"
+          className="hidden"
+          onChange={handleResumeUpload}
+        />
 
-          <div className={`${styles.floatingStatus} px-4 py-3 text-sm ll-title`}>
-            <p>Profile owner: <strong>{userMeta?.username}</strong></p>
-            <p className="mt-1 ll-muted">
-              AI: {status?.ai_configured ? `${status.provider} / ${status.model}` : "Not configured yet"}
-            </p>
-          </div>
-        </header>
+        <ResumeIntakeModal
+          isVisible={showResumePrompt}
+          onUpload={() => uploadInputRef.current?.click()}
+          onBuildFromScratch={() => {
+            setShowResumePrompt(false);
+            setSuccess("Starting from scratch. Add the core details and build from there.");
+          }}
+          onNeedsImprovement={() => {
+            setShowResumePrompt(false);
+            setSuccess("No problem. Use the clean form, style presets, and ATS review to improve it.");
+          }}
+          isParsing={isParsingResume}
+        />
 
-        <section className={styles.warningRack}>
-          <article className={styles.warningCard}>
-            <p className={styles.warningEyebrow}>AI Disclaimer</p>
-            <h2 className="mt-2 text-lg font-semibold ll-title">This is not 100% reliable</h2>
+        <section className={styles.welcomeHero}>
+          <div className={styles.heroOrbOne} aria-hidden="true" />
+          <div className={styles.heroOrbTwo} aria-hidden="true" />
+          <div className={styles.heroGlass}>
+            <p className={styles.heroEyebrow}>Welcome to Liquid Life</p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-tight ll-title sm:text-5xl">
+              Build a polished resume in a guided, faster flow.
+            </h1>
+            <p className="mt-4 max-w-3xl text-sm leading-7 ll-muted sm:text-base">
+              Start with your existing resume or fill the form from scratch. The builder focuses on quick edits, cleaner structure,
+              better style switching, and a stronger final export.
+            </p>
+            <div className={styles.heroSignals}>
+              <span className={styles.heroSignal}>Smart autofill</span>
+              <span className={styles.heroSignal}>Clean editing</span>
+              <span className={styles.heroSignal}>Multiple resume styles</span>
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.noticeRack}>
+          <article className={styles.noticeCard}>
+            <p className={styles.noticeEyebrow}>Important</p>
+            <h2 className="mt-2 text-lg font-semibold ll-title">Always review before exporting</h2>
             <p className="mt-2 text-sm ll-muted">
-              Always review, edit, and verify your resume and cover letter before uploading, sending, or applying anywhere.
+              Generated content still needs human review. Check wording, dates, metrics, and claims before sending it anywhere.
             </p>
           </article>
-
-          <article className={styles.warningCard}>
-            <p className={styles.warningEyebrow}>Input Quality Warning</p>
-            <h2 className="mt-2 text-lg font-semibold ll-title">Your output depends on your data</h2>
+          <article className={styles.noticeCard}>
+            <p className={styles.noticeEyebrow}>Input quality</p>
+            <h2 className="mt-2 text-lg font-semibold ll-title">Better detail produces better resumes</h2>
             <p className="mt-2 text-sm ll-muted">
-              The quality of the resume depends heavily on the quality of the details you enter here. Add accurate, reliable,
-              and detailed information for stronger results.
-            </p>
-          </article>
-
-          <article className={styles.warningCard}>
-            <p className={styles.warningEyebrow}>Submission Warning</p>
-            <h2 className="mt-2 text-lg font-semibold ll-title">Do not send blind</h2>
-            <p className="mt-2 text-sm ll-muted">
-              Generated wording, metrics, and formatting can still need manual cleanup. Check every claim, date, and keyword before use.
+              Add reliable information, measurable achievements, and strong project detail so the final resume has better material to work with.
             </p>
           </article>
         </section>
@@ -492,224 +749,210 @@ export default function ProcurementPage() {
         {success && !error && <p className={`${styles.alertSuccess} px-4 py-3 text-sm text-emerald-700`}>{success}</p>}
 
         {status && !status.ai_configured && !isLoading && (
-          <section className={`${styles.infoPanel} ll-panel p-5`}>
-            <p className="text-sm font-semibold ll-title">OpenAI is not configured yet.</p>
-            <p className="mt-2 text-sm ll-muted">
-              ATS review still works. For AI cover-letter and resume generation, add `OPENAI_API_KEY` to the Django backend environment.
+          <section className={`${styles.noticeStrip} ll-panel p-4`}>
+            <p className="text-sm ll-title">Automated document generation is temporarily unavailable.</p>
+            <p className="mt-1 text-sm ll-muted">
+              You can still upload a resume, complete the profile, switch resume styles, and run ATS review.
             </p>
           </section>
         )}
 
-        <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <article className={`${styles.depthPanel} ll-panel p-6`}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
+        <section className={styles.workspaceGrid}>
+          <article className={`${styles.formPanel} ll-panel p-6`}>
+            <div className={styles.panelHeader}>
               <div>
-                <p className="text-xs uppercase tracking-[0.18em] ll-muted">Local Profile</p>
-                <h2 className="mt-2 text-2xl font-semibold ll-title">Tell Liquid Life about you</h2>
+                <p className="text-xs uppercase tracking-[0.18em] ll-muted">Profile Builder</p>
+                <h2 className="mt-2 text-2xl font-semibold ll-title">Simple resume data capture</h2>
+                <p className="mt-2 text-sm ll-muted">
+                  Keep the inputs clean and factual. You can upload a resume anytime to auto-fill these fields and then edit them manually.
+                </p>
               </div>
-              <span className={`${styles.signalPill} rounded-full px-3 py-1 text-xs ll-title`}>Saved automatically</span>
+              <button
+                type="button"
+                onClick={() => uploadInputRef.current?.click()}
+                className={`${styles.secondaryButton} px-4 py-2 text-sm font-semibold ll-title transition`}
+              >
+                Upload Resume to Autofill
+              </button>
             </div>
 
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div className={styles.formGrid}>
               <ProfileInput label="Full Name" value={profile.fullName} onChange={(value) => updateProfile("fullName", value)} placeholder="Jane Doe" />
-              <ProfileInput label="Headline" value={profile.headline} onChange={(value) => updateProfile("headline", value)} placeholder="Backend Engineer | API + Data Platforms" />
+              <ProfileInput label="Headline" value={profile.headline} onChange={(value) => updateProfile("headline", value)} placeholder="Platform Engineer | Cloud, APIs, Automation" />
               <ProfileInput label="Email" value={profile.email} onChange={(value) => updateProfile("email", value)} placeholder="jane@example.com" />
               <ProfileInput label="Phone" value={profile.phone} onChange={(value) => updateProfile("phone", value)} placeholder="+61 ..." />
               <ProfileInput label="Location" value={profile.location} onChange={(value) => updateProfile("location", value)} placeholder="Sydney, NSW" />
-              <ProfileInput label="Portfolio URL" value={profile.portfolioUrl} onChange={(value) => updateProfile("portfolioUrl", value)} placeholder="https://portfolio.example.com" />
-              <ProfileInput label="LinkedIn URL" value={profile.linkedinUrl} onChange={(value) => updateProfile("linkedinUrl", value)} placeholder="https://linkedin.com/in/..." />
-              <ProfileTextarea label="Professional Summary" value={profile.summary} onChange={(value) => updateProfile("summary", value)} placeholder="What should the AI know about your background and strengths?" rows={5} />
-              <ProfileTextarea label="Target Roles" value={profile.targetRoles} onChange={(value) => updateProfile("targetRoles", value)} placeholder="Senior Backend Engineer, Platform Engineer" rows={4} />
-              <ProfileTextarea label="Skills" value={profile.skills} onChange={(value) => updateProfile("skills", value)} placeholder="Python, Django, PostgreSQL, AWS, React" rows={4} />
-              <ProfileTextarea label="Achievements" value={profile.achievements} onChange={(value) => updateProfile("achievements", value)} placeholder="One bullet per line with measurable wins" rows={5} />
-              <ProfileTextarea label="Experience Notes" value={profile.experience} onChange={(value) => updateProfile("experience", value)} placeholder="Key responsibilities and impact by role" rows={6} />
-              <ProfileTextarea label="Education" value={profile.education} onChange={(value) => updateProfile("education", value)} placeholder="Degrees, certificates, bootcamps" rows={4} />
-              <ProfileTextarea label="Certifications" value={profile.certifications} onChange={(value) => updateProfile("certifications", value)} placeholder="AWS CCP, Azure Fundamentals" rows={4} />
-              <ProfileTextarea label="Projects" value={profile.projects} onChange={(value) => updateProfile("projects", value)} placeholder="Relevant projects or case studies" rows={5} />
-              <ProfileTextarea label="Strengths" value={profile.strengths} onChange={(value) => updateProfile("strengths", value)} placeholder="Leadership, stakeholder communication, system design" rows={4} />
-              <ProfileTextarea label="Preferences" value={profile.preferences} onChange={(value) => updateProfile("preferences", value)} placeholder="Preferred tone, work style, industries" rows={4} />
-              <div className="md:col-span-2">
+              <ProfileInput label="Portfolio" value={profile.portfolioUrl} onChange={(value) => updateProfile("portfolioUrl", value)} placeholder="https://portfolio.example.com" />
+              <ProfileInput label="LinkedIn" value={profile.linkedinUrl} onChange={(value) => updateProfile("linkedinUrl", value)} placeholder="https://linkedin.com/in/..." />
+              <div className={styles.formSpanTwo}>
+                <ProfileTextarea
+                  label="Professional Summary"
+                  value={profile.summary}
+                  onChange={(value) => updateProfile("summary", value)}
+                  placeholder="Summarize your professional background, domain strengths, and the kind of value you create."
+                  rows={5}
+                />
+              </div>
+              <ProfileTextarea label="Target Roles" value={profile.targetRoles} onChange={(value) => updateProfile("targetRoles", value)} placeholder={"Senior Backend Engineer\nPlatform Engineer"} rows={4} />
+              <ProfileTextarea label="Skills" value={profile.skills} onChange={(value) => updateProfile("skills", value)} placeholder={"Python\nDjango\nPostgreSQL\nAzure"} rows={4} />
+              <ProfileTextarea label="Achievements" value={profile.achievements} onChange={(value) => updateProfile("achievements", value)} placeholder="Improved deployment speed by 40%..." rows={5} />
+              <ProfileTextarea label="Experience" value={profile.experience} onChange={(value) => updateProfile("experience", value)} placeholder="Role, company, scope, impact, measurable results..." rows={7} />
+              <ProfileTextarea label="Education" value={profile.education} onChange={(value) => updateProfile("education", value)} placeholder="Degree, institution, year..." rows={5} />
+              <ProfileTextarea label="Certifications" value={profile.certifications} onChange={(value) => updateProfile("certifications", value)} placeholder={"AZ-900\nAWS CCP"} rows={4} />
+              <ProfileTextarea label="Projects" value={profile.projects} onChange={(value) => updateProfile("projects", value)} placeholder="Project name, stack, impact, proof points..." rows={6} />
+              <ProfileTextarea label="Preferences" value={profile.preferences} onChange={(value) => updateProfile("preferences", value)} placeholder="Preferred industries, tone, remote/on-site preferences..." rows={4} />
+              <div className={styles.formSpanTwo}>
                 <ProfileTextarea
                   label="Additional Context"
                   value={profile.additionalContext}
                   onChange={(value) => updateProfile("additionalContext", value)}
-                  placeholder="Anything else the AI should consider for tailored documents"
+                  placeholder="Anything else that should shape the resume or cover letter."
                   rows={5}
                 />
               </div>
             </div>
           </article>
 
-          <article className={`${styles.depthPanel} ll-panel p-6`}>
-            <p className="text-xs uppercase tracking-[0.18em] ll-muted">Document Targeting</p>
-            <h2 className="mt-2 text-2xl font-semibold ll-title">Paste the job description and pick a resume</h2>
-
-            <form onSubmit={handleGenerateApplicationPair} className="mt-5 space-y-4">
-              <label className="space-y-2">
-                <FieldLabel>Base Resume</FieldLabel>
-                <select
-                  value={selectedResumeId}
-                  onChange={(event) => setSelectedResumeId(event.target.value)}
-                  className={`${styles.inputSurface} w-full px-3 py-2 text-sm ll-title outline-none transition focus:ring-2`}
-                >
-                  <option value="">Use profile only</option>
-                  {resumeDocuments.map((document) => (
-                    <option key={document.id} value={String(document.id)}>
-                      {document.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <ProfileInput label="Company Name" value={companyName} onChange={setCompanyName} placeholder="OpenAI" />
-                <ProfileInput label="Target Role" value={targetRole} onChange={setTargetRole} placeholder="Backend Engineer" />
+          <aside className={styles.sideColumn}>
+            <form onSubmit={handleGenerateApplicationPair} className={`${styles.sidePanel} ll-panel p-6`}>
+              <div className={styles.panelHeader}>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] ll-muted">Job Targeting</p>
+                  <h2 className="mt-2 text-2xl font-semibold ll-title">Point the resume at the job</h2>
+                </div>
+                <span className={`${styles.signalPill} rounded-full px-3 py-1 text-xs ll-title`}>Saved automatically</span>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="space-y-2">
-                  <FieldLabel>Tone</FieldLabel>
+              <div className="mt-5 space-y-4">
+                <FormCard label="Use an existing saved resume" hint="Optional extra context from the Documents module.">
                   <select
-                    value={tone}
-                    onChange={(event) => setTone(event.target.value as ToneOption)}
-                    className={`${styles.inputSurface} w-full px-3 py-2 text-sm ll-title outline-none transition focus:ring-2`}
+                    value={selectedResumeId}
+                    onChange={(event) => setSelectedResumeId(event.target.value)}
+                    className={`${styles.inputSurface} w-full px-3 py-3 text-sm ll-title outline-none transition focus:ring-2`}
                   >
-                    {toneOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option[0].toUpperCase() + option.slice(1)}
+                    <option value="">Use profile only</option>
+                    {resumeDocuments.map((document) => (
+                      <option key={document.id} value={String(document.id)}>
+                        {document.title}
                       </option>
                     ))}
                   </select>
-                </label>
+                </FormCard>
 
-                <label className="space-y-2">
-                  <FieldLabel>Resume Style</FieldLabel>
-                  <select
-                    value={resumeStyle}
-                    onChange={(event) => {
-                      const nextTemplate = event.target.value as DocumentTemplateName;
-                      setResumeStyle(nextTemplate);
-                      setResumeTemplateConfig(getDefaultResumeSectionTemplateConfig(nextTemplate));
-                    }}
-                    className={`${styles.inputSurface} w-full px-3 py-2 text-sm ll-title outline-none transition focus:ring-2`}
-                  >
-                    {resumeStyleOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs ll-muted">
-                    {resumeStyleOptions.find((option) => option.value === resumeStyle)?.description}
-                  </p>
-                </label>
-              </div>
+                <div className={styles.sideInputGrid}>
+                  <ProfileInput label="Company" value={companyName} onChange={setCompanyName} placeholder="OpenAI" />
+                  <ProfileInput label="Target Role" value={targetRole} onChange={setTargetRole} placeholder="Backend Engineer" />
+                </div>
 
-              <ResumeSectionStyleFields
-                value={resumeTemplateConfig}
-                onChange={setResumeTemplateConfig}
-                containerClassName="grid gap-4 md:grid-cols-2 xl:grid-cols-5"
-                labelClassName="space-y-2"
-                selectClassName={`${styles.inputSurface} w-full px-3 py-2 text-sm ll-title outline-none transition focus:ring-2`}
-                hintClassName="text-xs ll-muted"
-              />
-
-              <label className="space-y-2">
-                <FieldLabel>Job Description</FieldLabel>
-                <textarea
+                <ProfileTextarea
+                  label="Job Description"
                   value={jobDescription}
-                  onChange={(event) => setJobDescription(event.target.value)}
-                  rows={14}
-                  placeholder="Paste the full role description here."
-                  className={`${styles.inputSurface} w-full px-3 py-2 text-sm ll-title outline-none transition focus:ring-2`}
+                  onChange={setJobDescription}
+                  placeholder="Paste the full job description here. Keep it plain and complete."
+                  rows={13}
+                  hint="Plain text only. The cleaner the description, the better the targeting."
                 />
-              </label>
 
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="submit"
-                  disabled={isGeneratingDocuments || !status?.ai_configured}
-                  className={`${styles.primaryButton} px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60`}
-                >
-                  {isGeneratingDocuments ? "Generating resume + cover letter..." : "Generate Resume + Cover Letter"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleRunAts()}
-                  disabled={isRunningAts}
-                  className={`${styles.secondaryButton} px-4 py-2 text-sm font-semibold ll-title transition disabled:cursor-not-allowed disabled:opacity-60`}
-                >
-                  {isRunningAts ? "Running ATS review..." : "Run ATS Review"}
-                </button>
+                <div className={styles.actionRow}>
+                  <button
+                    type="submit"
+                    disabled={isGeneratingDocuments || !status?.ai_configured}
+                    className={`${styles.primaryButton} px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    {isGeneratingDocuments ? "Generating documents..." : "Generate Resume + Cover Letter"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleRunAts()}
+                    disabled={isRunningAts}
+                    className={`${styles.secondaryButton} px-4 py-3 text-sm font-semibold ll-title transition disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    {isRunningAts ? "Running ATS review..." : "Run ATS Review"}
+                  </button>
+                </div>
               </div>
             </form>
 
-            <div className={`${styles.infoPanel} mt-5 p-4 text-sm ll-muted`}>
-              <p>Resume source count: {resumeDocuments.length}</p>
-              <p className="mt-1">
-                Resume style:{" "}
-                <span className="font-semibold text-[#2c3656]">
-                  {resumeStyleOptions.find((option) => option.value === resumeStyle)?.label}
-                </span>
+            <section className={`${styles.sidePanel} ll-panel p-6`}>
+              <div className={styles.panelHeader}>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] ll-muted">Resume Styles</p>
+                  <h2 className="mt-2 text-2xl font-semibold ll-title">Switch styles instantly</h2>
+                </div>
+              </div>
+              <p className="mt-3 text-sm ll-muted">
+                Choose the visual direction before generation or switch styles afterward to preview the same content in a cleaner layout.
               </p>
-              <p className="mt-1">Saved outputs go straight into the shared Documents module so you can edit them live afterward.</p>
-            </div>
-          </article>
+
+              <div className={styles.styleGrid}>
+                {resumeStylePresets.map((preset) => (
+                  <ResumeStyleCard
+                    key={preset.id}
+                    preset={preset}
+                    isActive={selectedStyle.id === preset.id}
+                    onSelect={() => setSelectedStyleId(preset.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          </aside>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-2">
+        <section className={styles.previewGrid}>
           <GeneratedPreview
-            label="AI Cover Letter"
+            label="Cover Letter Draft"
             result={coverLetterResult}
             renderedHtml={renderedCoverLetterHtml}
             onSave={() => handleSaveGenerated(coverLetterResult as GeneratedDocumentPayload, "cover_letter")}
             saveLabel="Save to Documents"
             isSaving={isSavingCoverLetter}
+            helper="Professional text blocks only. Keep the structure direct and easy to review."
           />
 
           <GeneratedPreview
-            label="AI Resume"
-            result={resumeResult}
+            label="Resume Preview"
+            result={styledResumePayload}
             renderedHtml={renderedResumeHtml}
-            onSave={() => handleSaveGenerated(resumeResult as GeneratedDocumentPayload, "resume")}
+            onSave={() => handleSaveGenerated(styledResumePayload as GeneratedDocumentPayload, "resume")}
             saveLabel="Save to Documents"
             isSaving={isSavingResume}
+            helper={`${selectedStyle.label} is applied to the live preview and will be used when you save this resume.`}
           />
         </section>
 
-        <section className={`${styles.depthPanel} ll-panel p-6`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <section className={`${styles.atsPanel} ll-panel p-6`}>
+          <div className={styles.panelHeader}>
             <div>
               <p className="text-xs uppercase tracking-[0.18em] ll-muted">ATS Review</p>
-              <h2 className="mt-2 text-2xl font-semibold ll-title">Resume match score</h2>
+              <h2 className="mt-2 text-2xl font-semibold ll-title">Match score and gaps</h2>
             </div>
-            {atsResult && (
+            {atsResult ? (
               <div className={`${styles.signalPill} rounded-full px-4 py-2 text-sm font-semibold ll-title`}>
                 Score: {atsResult.overall_score}/100
               </div>
-            )}
+            ) : null}
           </div>
 
           {!atsResult ? (
-            <p className="mt-4 text-sm ll-muted">Run ATS review after selecting or generating a resume.</p>
+            <p className="mt-4 text-sm ll-muted">Run ATS review after choosing or generating a resume.</p>
           ) : (
-            <div className="mt-5 grid gap-5 lg:grid-cols-[0.45fr_0.55fr]">
-              <div className="space-y-4">
-                <article className={`${styles.previewCard} ll-panel-soft p-4`}>
+            <div className={styles.atsGrid}>
+              <div className={styles.atsStats}>
+                <article className={`${styles.metricCard} ll-panel-soft p-4`}>
                   <p className="text-xs uppercase tracking-[0.16em] ll-muted">Keyword Match</p>
                   <p className="mt-2 text-3xl font-semibold ll-title">{atsResult.keyword_score}%</p>
                 </article>
-                <article className={`${styles.previewCard} ll-panel-soft p-4`}>
+                <article className={`${styles.metricCard} ll-panel-soft p-4`}>
                   <p className="text-xs uppercase tracking-[0.16em] ll-muted">Section Coverage</p>
                   <p className="mt-2 text-3xl font-semibold ll-title">{atsResult.section_score}%</p>
                 </article>
-                <article className={`${styles.previewCard} ll-panel-soft p-4`}>
+                <article className={`${styles.metricCard} ll-panel-soft p-4`}>
                   <p className="text-sm ll-muted">{atsResult.summary}</p>
                 </article>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <article className={`${styles.previewCard} ll-panel-soft p-4`}>
+              <div className={styles.atsDetails}>
+                <article className={`${styles.metricCard} ll-panel-soft p-4`}>
                   <p className="text-xs uppercase tracking-[0.16em] ll-muted">Matched Keywords</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {atsResult.matched_keywords.length === 0 ? (
@@ -724,7 +967,7 @@ export default function ProcurementPage() {
                   </div>
                 </article>
 
-                <article className={`${styles.previewCard} ll-panel-soft p-4`}>
+                <article className={`${styles.metricCard} ll-panel-soft p-4`}>
                   <p className="text-xs uppercase tracking-[0.16em] ll-muted">Missing Keywords</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {atsResult.missing_keywords.length === 0 ? (
@@ -739,7 +982,7 @@ export default function ProcurementPage() {
                   </div>
                 </article>
 
-                <article className={`${styles.previewCard} ll-panel-soft p-4 md:col-span-2`}>
+                <article className={`${styles.metricCard} ll-panel-soft p-4`}>
                   <p className="text-xs uppercase tracking-[0.16em] ll-muted">Recommendations</p>
                   <ul className="mt-3 space-y-2 text-sm ll-title">
                     {atsResult.recommendations.map((item) => (

@@ -8,6 +8,7 @@ from urllib import error, request
 
 from django.conf import settings
 
+from jobs.document_content import extract_document_content
 from jobs.template_config import normalize_document_template_config
 
 OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
@@ -76,6 +77,19 @@ SECTION_PATTERNS = {
     "projects": r"projects|selected projects",
     "education": r"education|qualifications",
 }
+PROFILE_SECTION_ALIASES = {
+    "summary": {"summary", "profile", "professional summary", "about"},
+    "experience": {"experience", "work experience", "professional experience", "employment", "work history"},
+    "skills": {"skills", "core skills", "technical skills", "technologies"},
+    "education": {"education", "qualifications", "academic background"},
+    "certifications": {"certifications", "licenses", "certificates"},
+    "projects": {"projects", "selected projects"},
+    "achievements": {"achievements", "highlights", "key achievements", "awards"},
+}
+EMAIL_PATTERN = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
+PHONE_PATTERN = re.compile(r"(?:(?:\+?\d[\s().-]*){8,15})")
+URL_PATTERN = re.compile(r"(https?://[^\s]+|www\.[^\s]+)", re.IGNORECASE)
+LINKEDIN_PATTERN = re.compile(r"(https?://[^\s]*linkedin\.com/[^\s]+|www\.[^\s]*linkedin\.com/[^\s]+)", re.IGNORECASE)
 
 
 class ProcurementAIError(Exception):
@@ -148,6 +162,248 @@ def format_profile_for_prompt(profile: dict) -> dict:
         "preferences": normalize_list(profile.get("preferences", "")),
         "additional_context": str(profile.get("additionalContext", "")).strip(),
     }
+
+
+def extract_resume_text(file_obj) -> str:
+    return strip_html(extract_document_content(file_obj))
+
+
+def _normalize_profile_text(value: object) -> str:
+    if isinstance(value, list):
+        return "\n".join(item for item in normalize_list(value) if item)
+    return _clean_text(value)
+
+
+def _looks_like_name(line: str) -> bool:
+    if not line or any(token in line for token in ("@", "http", "www.")):
+        return False
+    if re.search(r"\d", line):
+        return False
+    words = [word for word in re.split(r"\s+", line.strip()) if word]
+    if not 2 <= len(words) <= 4:
+        return False
+    return all(re.fullmatch(r"[A-Z][A-Za-z'`.-]+", word) for word in words)
+
+
+def _normalize_resume_heading(line: str) -> str:
+    normalized = re.sub(r"[:\s]+$", "", line.strip()).lower()
+    normalized = re.sub(r"[^a-z\s]", "", normalized)
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def _extract_resume_sections(text: str) -> dict[str, list[str]]:
+    sections = {key: [] for key in PROFILE_SECTION_ALIASES}
+    current_section: str | None = None
+
+    for raw_line in (text or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        normalized = _normalize_resume_heading(line)
+        matched_section = next(
+            (key for key, aliases in PROFILE_SECTION_ALIASES.items() if normalized in aliases),
+            None,
+        )
+        if matched_section:
+            current_section = matched_section
+            continue
+
+        if current_section:
+            sections[current_section].append(line)
+
+    return sections
+
+
+def _guess_resume_contact(text: str) -> dict[str, str]:
+    email = ""
+    email_match = EMAIL_PATTERN.search(text or "")
+    if email_match:
+        email = email_match.group(0)
+
+    phone = ""
+    phone_match = PHONE_PATTERN.search(text or "")
+    if phone_match:
+        phone = re.sub(r"\s{2,}", " ", phone_match.group(0)).strip()
+
+    linkedin = ""
+    linkedin_match = LINKEDIN_PATTERN.search(text or "")
+    if linkedin_match:
+        linkedin = linkedin_match.group(0)
+
+    portfolio = ""
+    for match in URL_PATTERN.findall(text or ""):
+        if "linkedin.com" in match.lower():
+            continue
+        portfolio = match
+        break
+
+    return {
+        "email": email,
+        "phone": phone,
+        "linkedinUrl": linkedin,
+        "portfolioUrl": portfolio,
+    }
+
+
+def _guess_identity(lines: list[str]) -> dict[str, str]:
+    name = ""
+    headline = ""
+    location = ""
+
+    for line in lines[:8]:
+        if not name and _looks_like_name(line):
+            name = line
+            continue
+
+        if not headline and len(line) <= 120 and "@" not in line and "http" not in line and not re.search(r"\d{5,}", line):
+            headline = line
+            continue
+
+        if not location and "," in line and "@" not in line and "http" not in line:
+            location = line
+
+    return {
+        "fullName": name,
+        "headline": headline,
+        "location": location,
+    }
+
+
+def _pick_achievement_lines(lines: list[str]) -> list[str]:
+    scored = []
+    for line in lines:
+        score = 0
+        if re.search(r"\d", line):
+            score += 2
+        if line.lstrip().startswith(("-", "•", "*")):
+            score += 1
+        if len(line.split()) >= 5:
+            score += 1
+        scored.append((score, line.strip("•*- ")))
+
+    return [line for score, line in sorted(scored, key=lambda item: item[0], reverse=True) if line][:6]
+
+
+def _build_resume_profile_fallback(resume_text: str) -> dict:
+    lines = [line.strip() for line in resume_text.splitlines() if line.strip()]
+    sections = _extract_resume_sections(resume_text)
+    contact = _guess_resume_contact(resume_text)
+    identity = _guess_identity(lines)
+    summary = "\n".join(sections["summary"][:4])
+    skills = "\n".join(normalize_list(sections["skills"])[:18])
+    achievements = "\n".join(_pick_achievement_lines(sections["achievements"] or sections["experience"]))
+
+    target_roles = identity["headline"]
+    if not target_roles and sections["experience"]:
+        target_roles = sections["experience"][0]
+
+    return {
+        "fullName": identity["fullName"],
+        "headline": identity["headline"],
+        "email": contact["email"],
+        "phone": contact["phone"],
+        "location": identity["location"],
+        "portfolioUrl": contact["portfolioUrl"],
+        "linkedinUrl": contact["linkedinUrl"],
+        "summary": summary,
+        "targetRoles": target_roles,
+        "skills": skills,
+        "achievements": achievements,
+        "experience": "\n".join(sections["experience"][:18]),
+        "education": "\n".join(sections["education"][:10]),
+        "certifications": "\n".join(sections["certifications"][:10]),
+        "projects": "\n".join(sections["projects"][:12]),
+        "strengths": "",
+        "preferences": "",
+        "additionalContext": "",
+    }
+
+
+def _resume_extraction_prompt() -> str:
+    return """
+Extract a structured candidate profile from resume text.
+
+Return strict JSON only with these keys:
+{
+  "fullName": "string",
+  "headline": "string",
+  "email": "string",
+  "phone": "string",
+  "location": "string",
+  "portfolioUrl": "string",
+  "linkedinUrl": "string",
+  "summary": "string",
+  "targetRoles": ["string"],
+  "skills": ["string"],
+  "achievements": ["string"],
+  "experience": ["string"],
+  "education": ["string"],
+  "certifications": ["string"],
+  "projects": ["string"],
+  "preferences": ["string"],
+  "additionalContext": "string"
+}
+
+Rules:
+- Do not invent facts.
+- If a field is missing, return an empty string or empty array.
+- Keep resume bullets short and clean.
+- Use only information grounded in the resume text.
+""".strip()
+
+
+def _merge_profile_data(base: dict, candidate: dict) -> dict:
+    merged = dict(base)
+    for key, base_value in base.items():
+        candidate_value = candidate.get(key)
+        normalized_candidate = _normalize_profile_text(candidate_value)
+        if normalized_candidate:
+            merged[key] = normalized_candidate
+        elif not merged.get(key):
+            merged[key] = base_value
+    return merged
+
+
+def extract_resume_profile(resume_text: str) -> dict:
+    fallback = _build_resume_profile_fallback(resume_text)
+    api_key = getattr(settings, "OPENAI_API_KEY", "")
+    if not api_key:
+        return fallback
+
+    try:
+        extracted = _call_openai_json(
+            _resume_extraction_prompt(),
+            {
+                "resume_text": resume_text,
+                "fallback_profile": fallback,
+            },
+            temperature=0.1,
+        )
+    except ProcurementAIError:
+        return fallback
+
+    normalized = {
+        "fullName": _normalize_profile_text(extracted.get("fullName")),
+        "headline": _normalize_profile_text(extracted.get("headline")),
+        "email": _normalize_profile_text(extracted.get("email")),
+        "phone": _normalize_profile_text(extracted.get("phone")),
+        "location": _normalize_profile_text(extracted.get("location")),
+        "portfolioUrl": _normalize_profile_text(extracted.get("portfolioUrl")),
+        "linkedinUrl": _normalize_profile_text(extracted.get("linkedinUrl")),
+        "summary": _normalize_profile_text(extracted.get("summary")),
+        "targetRoles": _normalize_profile_text(extracted.get("targetRoles")),
+        "skills": _normalize_profile_text(extracted.get("skills")),
+        "achievements": _normalize_profile_text(extracted.get("achievements")),
+        "experience": _normalize_profile_text(extracted.get("experience")),
+        "education": _normalize_profile_text(extracted.get("education")),
+        "certifications": _normalize_profile_text(extracted.get("certifications")),
+        "projects": _normalize_profile_text(extracted.get("projects")),
+        "strengths": "",
+        "preferences": _normalize_profile_text(extracted.get("preferences")),
+        "additionalContext": _normalize_profile_text(extracted.get("additionalContext")),
+    }
+    return _merge_profile_data(fallback, normalized)
 
 
 def _extract_json_object(content: str) -> dict:

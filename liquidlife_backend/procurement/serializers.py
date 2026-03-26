@@ -62,3 +62,13 @@ class AtsReviewSerializer(serializers.Serializer):
                 {"resume_content": "Select a resume document or provide resume content to review."}
             )
         return attrs
+
+
+class ResumeAutofillSerializer(serializers.Serializer):
+    resume = serializers.FileField()
+
+    def validate_resume(self, value):
+        name = str(getattr(value, "name", "")).lower()
+        if not name.endswith((".pdf", ".docx", ".txt")):
+            raise serializers.ValidationError("Upload a PDF, DOCX, or TXT resume.")
+        return value

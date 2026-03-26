@@ -261,10 +261,11 @@
   border: 1px solid rgba(171, 187, 226, 0.7);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
-  padding: 0.45rem 0.75rem;
-  font-size: 0.76rem;
+  padding: 0.38rem 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: #314662;
+  letter-spacing: 0.02em;
 }
 
 .ll-resume-chip-tight {
@@ -315,8 +316,9 @@
 
 .ll-resume-summary-spotlight {
   border-radius: 1.25rem;
-  background: linear-gradient(135deg, rgba(72, 103, 187, 0.12), rgba(255, 255, 255, 0.96));
-  padding: 1rem 1.1rem;
+  background: linear-gradient(135deg, rgba(72, 103, 187, 0.14), rgba(255, 255, 255, 0.98));
+  padding: 1.15rem 1.2rem;
+  box-shadow: 0 18px 32px rgba(82, 102, 148, 0.1);
 }
 
 .ll-resume-summary-split {
@@ -367,6 +369,8 @@
   position: relative;
   border-radius: 1.2rem;
   padding: 1rem 1rem 1rem 1.1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 248, 255, 0.92));
+  box-shadow: 0 16px 28px rgba(82, 102, 148, 0.08);
 }
 
 .ll-resume-experience-card h3,
@@ -490,11 +494,12 @@
   border: 1px solid rgba(176, 191, 229, 0.8);
   border-radius: 1rem;
   background: linear-gradient(180deg, rgba(246, 249, 255, 0.98), rgba(235, 241, 255, 0.88));
-  padding: 0.9rem 0.95rem;
+  padding: 0.95rem 1rem;
   font-size: 0.88rem;
   font-weight: 600;
   line-height: 1.55;
   color: #23324a;
+  box-shadow: 0 12px 22px rgba(82, 102, 148, 0.07);
 }
 
 .ll-resume-project-highlights,
@@ -510,8 +515,9 @@
   align-items: start;
   border: 1px solid rgba(176, 191, 229, 0.8);
   border-radius: 1rem;
-  background: rgba(247, 250, 255, 0.96);
+  background: rgba(247, 250, 255, 0.98);
   padding: 0.85rem 0.9rem;
+  box-shadow: 0 12px 22px rgba(82, 102, 148, 0.07);
 }
 
 .ll-resume-project-highlight p {
@@ -546,10 +552,11 @@
   border: 1px solid rgba(176, 191, 229, 0.8);
   border-radius: 1rem;
   background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(235, 242, 255, 0.9));
-  padding: 0.9rem 0.95rem;
+  padding: 0.95rem 1rem;
   color: #23324a;
   font-weight: 600;
   line-height: 1.55;
+  box-shadow: 0 12px 22px rgba(82, 102, 148, 0.07);
 }
 
 .ll-resume-education-timeline {
