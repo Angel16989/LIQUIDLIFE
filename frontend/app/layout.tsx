@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Rasik N Projects",
-  description: "Projects hub with GitHub imports and live links into Liquid Life",
+  title: "Rasik Tiwari Projects",
+  description: "GitHub-driven project hub with live links to portfolio work and Liquid Life",
 };
 
 export default function RootLayout({
