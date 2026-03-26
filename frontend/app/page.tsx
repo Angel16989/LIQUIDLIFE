@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import styles from "./projects-hub.module.css";
 
 type GitHubRepo = {
   id: number;
@@ -117,68 +118,117 @@ export default async function HomePage() {
   const projects = await getGitHubProjects();
   const githubProfileUrl = `https://github.com/${GITHUB_USERNAME}`;
   const featuredProjects = projects.slice(0, 3);
+  const liveProjectsCount = projects.filter((project) => Boolean(getLiveRunUrl(project))).length;
+  const latestProject = projects[0];
 
   return (
-    <main className="ll-page px-4 py-8 sm:px-6">
-      <div className="ll-container space-y-6">
-        <header className="ll-panel overflow-hidden p-6 sm:p-8">
-          <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] ll-muted">Welcome To My Projects</p>
+    <main className={`ll-page px-4 py-8 sm:px-6 ${styles.shell}`}>
+      <div className={styles.backdrop} aria-hidden="true">
+        <span className={styles.glowOne} />
+        <span className={styles.glowTwo} />
+        <span className={styles.gridHalo} />
+      </div>
+
+      <div className={`ll-container space-y-6 ${styles.stack}`}>
+        <header className={`ll-panel overflow-hidden p-6 sm:p-8 ${styles.hero}`}>
+          <div className={styles.heroMesh} aria-hidden="true" />
+          <div className={styles.heroGrid}>
+            <div className={styles.heroCopy}>
+              <div className={styles.kickerRow}>
+                <p className="text-xs uppercase tracking-[0.28em] ll-muted">Welcome To My Projects</p>
+                <span className={styles.kickerChip}>GitHub Synced</span>
+              </div>
               <h1 className="mt-3 max-w-4xl text-4xl font-semibold tracking-tight ll-title sm:text-5xl">
                 {PROJECT_OWNER}
                 {" "}
                 ships public projects across web, systems, automation, and product builds.
               </h1>
-              <p className="mt-4 max-w-3xl text-base leading-7 ll-muted">
+              <p className={`mt-4 max-w-3xl text-base leading-7 ll-muted ${styles.heroLead}`}>
                 This site pulls directly from my public GitHub account, turns those repositories into a project index,
                 and links out to the live work that is already running. If you want the resume-first view, use my
                 portfolio site. If you want the actual project list, this is the domain for it.
               </p>
+
+              <div className={styles.metricGrid}>
+                <div className={styles.metricCard}>
+                  <span className={styles.metricValue}>{projects.length || "0"}</span>
+                  <span className={styles.metricLabel}>Public repositories</span>
+                </div>
+                <div className={styles.metricCard}>
+                  <span className={styles.metricValue}>{liveProjectsCount}</span>
+                  <span className={styles.metricLabel}>Live destinations</span>
+                </div>
+                <div className={styles.metricCard}>
+                  <span className={styles.metricValue}>{latestProject ? formatDate(latestProject.updated_at) : "Live"}</span>
+                  <span className={styles.metricLabel}>Latest GitHub update</span>
+                </div>
+              </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <a
-                href={githubProfileUrl}
-                className="ll-pill-btn flex items-center justify-center px-4 py-3 text-sm font-semibold"
-                target="_blank"
-                rel="noreferrer"
-              >
-                View GitHub
-              </a>
-              <a
-                href={PORTFOLIO_URL}
-                className="ll-pill-btn flex items-center justify-center px-4 py-3 text-sm font-semibold"
-                target="_blank"
-                rel="noreferrer"
-              >
-                View Portfolio
-              </a>
-              <a
-                href={LIQUIDLIFE_APP_URL}
-                className="ll-pill-btn flex items-center justify-center px-4 py-3 text-sm font-semibold"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Liquid Life Live Run
-              </a>
-              <a
-                href="https://github.com/new/import"
-                className="ll-pill-btn flex items-center justify-center px-4 py-3 text-sm font-semibold"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Import From GitHub
-              </a>
+            <div className={styles.heroRail}>
+              <div className={styles.heroRailCard}>
+                <p className={styles.railEyebrow}>Portfolio Layer</p>
+                <h2 className="mt-2 text-3xl font-semibold ll-title">One domain, multiple products.</h2>
+                <p className="mt-3 text-sm leading-7 ll-muted">
+                  The root experience is now a project showroom. Product-specific tools stay separated so the public
+                  site remains clean while the software still runs live.
+                </p>
+              </div>
+
+              <div className={styles.heroActions}>
+                <a
+                  href={githubProfileUrl}
+                  className={`ll-pill-btn flex items-center justify-center px-4 py-3 text-sm font-semibold ${styles.heroAction}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View GitHub
+                </a>
+                <a
+                  href={PORTFOLIO_URL}
+                  className={`ll-pill-btn flex items-center justify-center px-4 py-3 text-sm font-semibold ${styles.heroAction}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View Portfolio
+                </a>
+                <a
+                  href={LIQUIDLIFE_APP_URL}
+                  className={`ll-pill-btn flex items-center justify-center px-4 py-3 text-sm font-semibold ${styles.heroActionPrimary}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Liquid Life Live Run
+                </a>
+                <a
+                  href="https://github.com/new/import"
+                  className={`ll-pill-btn flex items-center justify-center px-4 py-3 text-sm font-semibold ${styles.heroAction}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Import From GitHub
+                </a>
+              </div>
+
+              <div className={styles.signalStack}>
+                <div className={styles.signalCard}>
+                  <span className={styles.signalLabel}>Primary destination</span>
+                  <p className={styles.signalValue}>rasikn.com</p>
+                </div>
+                <div className={styles.signalCard}>
+                  <span className={styles.signalLabel}>App route</span>
+                  <p className={styles.signalValue}>liquidlife.rasikn.com</p>
+                </div>
+              </div>
             </div>
           </div>
         </header>
 
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <article className="ll-panel p-6">
+          <article className={`ll-panel p-6 ${styles.sectionPanel}`}>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] ll-muted">Live Destinations</p>
+                <p className={`text-xs uppercase tracking-[0.24em] ll-muted ${styles.sectionEyebrow}`}>Live Destinations</p>
                 <h2 className="mt-2 text-3xl font-semibold ll-title">Projects with real links</h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 ll-muted">
                   Live run links stay selective. Right now that means the Liquid Life app and the personal portfolio
@@ -190,8 +240,8 @@ export default async function HomePage() {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <div className="ll-panel-soft px-5 py-5">
+            <div className={`mt-6 grid gap-4 md:grid-cols-2 ${styles.featureGrid}`}>
+              <div className={`ll-panel-soft px-5 py-5 ${styles.featureCard}`}>
                 <p className="text-xs uppercase tracking-[0.22em] ll-muted">Portfolio</p>
                 <h3 className="mt-2 text-2xl font-semibold ll-title">rasiktiwari.com.au</h3>
                 <p className="mt-3 text-sm leading-7 ll-muted">
@@ -217,7 +267,7 @@ export default async function HomePage() {
                 </div>
               </div>
 
-              <div className="ll-panel-soft px-5 py-5">
+              <div className={`ll-panel-soft px-5 py-5 ${styles.featureCard}`}>
                 <p className="text-xs uppercase tracking-[0.22em] ll-muted">Product</p>
                 <h3 className="mt-2 text-2xl font-semibold ll-title">Liquid Life</h3>
                 <p className="mt-3 text-sm leading-7 ll-muted">
@@ -245,26 +295,26 @@ export default async function HomePage() {
             </div>
           </article>
 
-          <aside className="ll-panel p-6">
+          <aside className={`ll-panel p-6 ${styles.sectionPanel}`}>
             <p className="text-xs uppercase tracking-[0.24em] ll-muted">How This Page Works</p>
             <h2 className="mt-2 text-2xl font-semibold ll-title">Direct GitHub import</h2>
-            <div className="mt-4 space-y-3 text-sm ll-muted">
-              <div className="ll-panel-soft px-4 py-4">
+            <div className={`mt-4 space-y-3 text-sm ll-muted ${styles.infoStack}`}>
+              <div className={`ll-panel-soft px-4 py-4 ${styles.infoCard}`}>
                 <p className="font-semibold ll-title">Source</p>
                 <p className="mt-1">This page calls the public GitHub API for {GITHUB_USERNAME} and rebuilds the list from live repository data.</p>
               </div>
-              <div className="ll-panel-soft px-4 py-4">
+              <div className={`ll-panel-soft px-4 py-4 ${styles.infoCard}`}>
                 <p className="font-semibold ll-title">Project explanations</p>
                 <p className="mt-1">
                   Each repository shows either the GitHub description or a general summary generated from the repo name,
                   language, and category.
                 </p>
               </div>
-              <div className="ll-panel-soft px-4 py-4">
+              <div className={`ll-panel-soft px-4 py-4 ${styles.infoCard}`}>
                 <p className="font-semibold ll-title">Main portfolio</p>
                 <p className="mt-1 break-all text-[#31476d]">{PORTFOLIO_URL}</p>
               </div>
-              <div className="ll-panel-soft px-4 py-4">
+              <div className={`ll-panel-soft px-4 py-4 ${styles.infoCard}`}>
                 <p className="font-semibold ll-title">Live app subdomain</p>
                 <p className="mt-1 break-all text-[#31476d]">{LIQUIDLIFE_APP_URL}</p>
               </div>
@@ -278,9 +328,9 @@ export default async function HomePage() {
               <p className="text-xs uppercase tracking-[0.24em] ll-muted">Recently Updated</p>
               <h2 className="mt-2 text-3xl font-semibold ll-title">Fresh work from GitHub</h2>
             </div>
-            <div className="grid gap-5 lg:grid-cols-3">
+            <div className={`grid gap-5 lg:grid-cols-3 ${styles.highlightGrid}`}>
               {featuredProjects.map((project) => (
-                <article key={project.id} className="ll-panel p-5">
+                <article key={project.id} className={`ll-panel p-5 ${styles.highlightCard}`}>
                   <h3 className="text-2xl font-semibold ll-title">{project.name}</h3>
                   <p className="mt-2 text-xs uppercase tracking-[0.2em] ll-muted">
                     Updated {formatDate(project.updated_at)}
@@ -293,7 +343,7 @@ export default async function HomePage() {
         )}
 
         <section className="space-y-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className={`flex flex-wrap items-end justify-between gap-3 ${styles.repoSectionHeader}`}>
             <div>
               <p className="text-xs uppercase tracking-[0.24em] ll-muted">Imported From GitHub</p>
               <h2 className="mt-2 text-3xl font-semibold ll-title">All public repositories</h2>
@@ -309,41 +359,41 @@ export default async function HomePage() {
           </div>
 
           {projects.length > 0 ? (
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className={`grid gap-5 md:grid-cols-2 xl:grid-cols-3 ${styles.repoGrid}`}>
               {projects.map((project) => {
                 const liveRunUrl = getLiveRunUrl(project);
 
                 return (
-                  <article key={project.id} className="ll-panel flex flex-col p-5">
-                    <div className="flex items-start justify-between gap-3">
+                  <article key={project.id} className={`ll-panel flex flex-col p-5 ${styles.repoCard}`}>
+                    <div className={`flex items-start justify-between gap-3 ${styles.repoTopRow}`}>
                       <div>
                         <h3 className="text-2xl font-semibold ll-title">{project.name}</h3>
                         <p className="mt-1 text-xs uppercase tracking-[0.2em] ll-muted">
                           Updated {formatDate(project.updated_at)}
                         </p>
                       </div>
-                      <div className="rounded-full border border-white/60 bg-white/80 px-3 py-1 text-xs font-semibold text-[#3d5fa8]">
+                      <div className={styles.starBadge}>
                         ★ {project.stargazers_count}
                       </div>
                     </div>
 
-                    <p className="mt-4 min-h-24 text-sm leading-7 ll-muted">{buildGeneralSummary(project)}</p>
+                    <p className={`mt-4 min-h-24 text-sm leading-7 ll-muted ${styles.repoSummary}`}>{buildGeneralSummary(project)}</p>
 
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className={`mt-4 flex flex-wrap gap-2 ${styles.tagRow}`}>
                       {project.language && (
-                        <span className="rounded-full border border-white/60 bg-white/80 px-3 py-1 text-xs font-semibold text-[#31476d]">
+                        <span className={styles.tag}>
                           {project.language}
                         </span>
                       )}
-                      <span className="rounded-full border border-white/60 bg-white/70 px-3 py-1 text-xs font-semibold text-[#5f6677]">
+                      <span className={styles.tagMuted}>
                         Public Repo
                       </span>
                     </div>
 
-                    <div className="mt-6 flex flex-wrap gap-2">
+                    <div className={`mt-6 flex flex-wrap gap-2 ${styles.repoActions}`}>
                       <a
                         href={project.html_url}
-                        className="ll-pill-btn px-3 py-2 text-sm font-semibold"
+                        className={`ll-pill-btn px-3 py-2 text-sm font-semibold ${styles.repoAction}`}
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -352,7 +402,7 @@ export default async function HomePage() {
                       {liveRunUrl ? (
                         <a
                           href={liveRunUrl}
-                          className="ll-pill-btn px-3 py-2 text-sm font-semibold"
+                          className={`ll-pill-btn px-3 py-2 text-sm font-semibold ${styles.repoActionPrimary}`}
                           target="_blank"
                           rel="noreferrer"
                         >
@@ -365,7 +415,7 @@ export default async function HomePage() {
               })}
             </div>
           ) : (
-            <div className="ll-panel p-6">
+            <div className={`ll-panel p-6 ${styles.emptyState}`}>
               <p className="text-sm leading-7 ll-muted">
                 GitHub import is enabled, but no public repositories were returned right now. The GitHub profile link
                 above is still valid.
@@ -374,7 +424,7 @@ export default async function HomePage() {
           )}
         </section>
 
-        <section className="ll-panel p-6">
+        <section className={`ll-panel p-6 ${styles.appPanel}`}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-[0.24em] ll-muted">App Access</p>
