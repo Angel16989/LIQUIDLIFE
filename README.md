@@ -53,6 +53,9 @@ Important:
 ./scripts/docker-up.sh
 ```
 
+If you cannot access your router, use Cloudflare Tunnel instead of direct hosting:
+- [CLOUDFLARE_TUNNEL.md](CLOUDFLARE_TUNNEL.md)
+
 ## Environment Setup
 
 Create a root `.env` from [.env.example](.env.example):
@@ -158,6 +161,7 @@ Recommended split:
 More deployment detail is in [DEPLOY.md](DEPLOY.md).
 Google sign-in setup is isolated in [GOOGLE_SETUP.md](GOOGLE_SETUP.md).
 Single-machine Docker deployment is documented in [DOCKER.md](DOCKER.md).
+Cloudflare Tunnel setup is documented in [CLOUDFLARE_TUNNEL.md](CLOUDFLARE_TUNNEL.md).
 
 ## Backend Check
 

@@ -1,19 +1,27 @@
-# Docker Deployment On One Linux Server
+# Direct Docker Deployment On One Linux Server
+
+Use this document only if you can access your router and forward ports.
+
+If you cannot access the router, use [CLOUDFLARE_TUNNEL.md](CLOUDFLARE_TUNNEL.md) instead.
 
 This setup runs the full stack on a single machine:
 - Next.js frontend
 - Django backend
 - PostgreSQL
+- Caddy reverse proxy with HTTPS
 
 Containers:
 - `frontend` on port `3000`
 - `backend` on port `8000`
 - `db` internal only
+- `caddy` on ports `80` and `443`
 
 Persistent data lives under:
 - `docker-data/postgres`
 - `docker-data/media`
 - `docker-data/staticfiles`
+- `docker-data/caddy_data`
+- `docker-data/caddy_config`
 
 ## 1. Prepare `.env`
 
@@ -26,20 +34,29 @@ nano .env
 
 If this machine will be accessed from other devices, use the machine IP or domain, not `localhost`.
 
-Example for a server at `192.168.1.50`:
+Example for `rasikn.com`:
 
 ```env
-NEXT_PUBLIC_API_URL=http://192.168.1.50:8000
-FRONTEND_BASE_URL=http://192.168.1.50:3000
-ALLOWED_HOSTS=192.168.1.50,localhost,127.0.0.1,backend
-CORS_ALLOWED_ORIGINS=http://192.168.1.50:3000
-CSRF_TRUSTED_ORIGINS=http://192.168.1.50:3000
+DEPLOY_MODE=direct
+NEXT_PUBLIC_API_URL=https://api.rasikn.com
+FRONTEND_BASE_URL=https://rasikn.com
+PUBLIC_DOMAIN=rasikn.com
+API_DOMAIN=api.rasikn.com
+ALLOWED_HOSTS=rasikn.com,api.rasikn.com,localhost,127.0.0.1,backend
+CORS_ALLOWED_ORIGINS=https://rasikn.com
+CSRF_TRUSTED_ORIGINS=https://rasikn.com
 POSTGRES_DB=liquidlife
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=change_me_db_password
 LIQUIDLIFE_ADMIN_PASSWORD=change_me_admin_password
 SECRET_KEY=replace_with_a_long_random_secret
 DEBUG=False
+USE_X_FORWARDED_HOST=True
+USE_X_FORWARDED_PROTO=True
+SECURE_SSL_REDIRECT=True
+SESSION_COOKIE_SECURE=True
+CSRF_COOKIE_SECURE=True
+SECURE_HSTS_SECONDS=31536000
 ```
 
 If you are adding Google login later:
@@ -86,16 +103,31 @@ Expected backend response:
 ## 4. Open the app
 
 From this machine:
-- `http://localhost:3000`
+- `https://rasikn.com`
 
 From another device:
-- `http://SERVER_IP:3000`
+- `https://rasikn.com`
+- `https://api.rasikn.com/healthz`
+
+## DNS
+
+Create these DNS records at your registrar:
+- `A` record: `rasikn.com` -> your public server IP
+- `A` record: `api.rasikn.com` -> your public server IP
+
+If you use `www`, either:
+- add `www` as another `A` record to the same IP
+- or redirect it at the registrar
 
 ## Common server mistake
 
-If another laptop opens the frontend but login or data calls fail, the frontend was probably built with `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000`.
+If another laptop opens the frontend but login or data calls fail, the frontend was probably built with the wrong `NEXT_PUBLIC_API_URL`.
 
-That only works on the same machine.
+For `rasikn.com`, it must be:
+
+```env
+NEXT_PUBLIC_API_URL=https://api.rasikn.com
+```
 
 Fix it by changing `.env` and rebuilding the frontend:
 
@@ -142,18 +174,18 @@ git pull origin main
 ## Ports and firewall
 
 Open at least:
-- `3000/tcp` for the frontend
-- `8000/tcp` for the backend if clients or the frontend call it directly
-
-If you later put Nginx or Caddy in front, you can move to:
 - `80/tcp`
 - `443/tcp`
+
+Note:
+- `3000` and `8000` are bound to `127.0.0.1` only for local troubleshooting
+- external traffic should go through `80/443`
 
 ## Security note
 
 This Docker setup is enough to run the app on your machine today.
 
 It is not a full hardened internet-facing reverse-proxy setup yet. If you later expose it publicly on a real domain, the next step is:
-1. add Nginx or Caddy
-2. terminate HTTPS there
-3. move the app behind `80/443`
+1. keep this tower PC patched and stable
+2. back up `docker-data/`
+3. later move media/object storage off local disk if needed

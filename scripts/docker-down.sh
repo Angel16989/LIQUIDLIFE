@@ -15,6 +15,6 @@ if docker compose version >/dev/null 2>&1; then
 elif command -v docker-compose >/dev/null 2>&1; then
   docker-compose down
 else
-  docker rm -f liquidlife-frontend liquidlife-backend liquidlife-db >/dev/null 2>&1 || true
+  docker rm -f liquidlife-cloudflared liquidlife-caddy liquidlife-frontend liquidlife-backend liquidlife-db >/dev/null 2>&1 || true
   docker network rm liquidlife-network >/dev/null 2>&1 || true
 fi

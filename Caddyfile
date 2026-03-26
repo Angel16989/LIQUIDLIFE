@@ -1,0 +1,9 @@
+{$PUBLIC_DOMAIN:localhost} {
+	encode gzip zstd
+	reverse_proxy frontend:3000
+}
+
+{$API_DOMAIN:api.localhost} {
+	encode gzip zstd
+	reverse_proxy backend:8000
+}
