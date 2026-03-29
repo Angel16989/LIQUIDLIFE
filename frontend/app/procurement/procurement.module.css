@@ -322,14 +322,14 @@
   border: 1px solid rgba(190, 205, 240, 0.9);
   border-radius: 0.9rem;
   background: rgba(255, 255, 255, 0.96);
-  min-height: 17.5rem;
+  min-height: 15.5rem;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
 .stylePreviewScale {
-  transform: scale(0.335);
+  transform: scale(0.255);
   transform-origin: top left;
-  width: calc(100% / 0.335);
+  width: calc(100% / 0.255);
   pointer-events: none;
 }
 
@@ -512,11 +512,6 @@
   background: rgba(247, 250, 253, 0.95);
 }
 
-.styleMinimalAts .stylePreviewScale {
-  transform: scale(0.34);
-  width: calc(100% / 0.34);
-}
-
 .styleCreativeProfessional .stylePreviewViewport {
   background: linear-gradient(145deg, rgba(255, 247, 250, 0.9), rgba(241, 246, 255, 0.86));
 }
@@ -611,11 +606,11 @@
   }
 
   .stylePreviewViewport {
-    min-height: 14.5rem;
+    min-height: 13.2rem;
   }
 
   .stylePreviewScale {
-    transform: scale(0.29);
-    width: calc(100% / 0.29);
+    transform: scale(0.225);
+    width: calc(100% / 0.225);
   }
 }
