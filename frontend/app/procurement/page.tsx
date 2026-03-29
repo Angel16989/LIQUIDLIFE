@@ -44,7 +44,7 @@ type ResumeStylePreset = {
   description: string;
   templateName: DocumentTemplateName;
   templateConfig: ResumeSectionTemplateConfig;
-  previewClassName: string;
+  previewClassName: keyof typeof styles;
 };
 
 const resumeStylePresets: ResumeStylePreset[] = [
@@ -133,6 +133,56 @@ const resumeStylePresets: ResumeStylePreset[] = [
     previewClassName: "styleClassicExecutive",
   },
 ];
+
+const JAMES_BOND_SAMPLE_RESUME = `
+<h2>Professional Summary</h2>
+<p>Security-cleared intelligence and operations specialist with 10+ years delivering high-risk international missions. Strong background in threat assessment, stakeholder coordination, and mission-critical incident response.</p>
+<h2>Core Skills</h2>
+<ul>
+  <li>Risk Assessment &amp; Threat Intelligence</li>
+  <li>Cross-Functional Stakeholder Management</li>
+  <li>Secure Communications &amp; Incident Response</li>
+  <li>Operational Planning &amp; Crisis Leadership</li>
+  <li>Investigation, Surveillance, and Field Execution</li>
+</ul>
+<h2>Professional Experience</h2>
+<h3>Senior Field Operations Officer | MI6</h3>
+<p><em>2018 - Present</em></p>
+<ul>
+  <li>Led 14 multi-country operations, reducing mission exposure risk by 38% through stronger pre-operation threat modelling.</li>
+  <li>Coordinated intelligence handoffs across six agencies, improving response time during active incidents by 27%.</li>
+  <li>Built a structured post-mission review framework that raised repeat mission success rates from 82% to 93%.</li>
+</ul>
+<h3>Intelligence Officer | Royal Navy Liaison Unit</h3>
+<p><em>2013 - 2018</em></p>
+<ul>
+  <li>Managed secure intelligence briefings for senior command teams across maritime operations in EMEA regions.</li>
+  <li>Analyzed surveillance inputs and flagged 90+ high-priority anomalies, preventing escalation in multiple active zones.</li>
+  <li>Implemented a new information validation checklist that reduced false-positive intelligence alerts by 31%.</li>
+</ul>
+<h2>Projects</h2>
+<ul>
+  <li>Operation Nightfall: Designed mission-control escalation protocol used across three allied teams during coordinated interventions.</li>
+  <li>Secure Transit Initiative: Rebuilt executive movement planning process to improve route confidence and reduce exposure windows.</li>
+  <li>Signal Integrity Program: Standardized secure comms fallback workflow for remote field units during system disruption events.</li>
+</ul>
+<h2>Education</h2>
+<ul>
+  <li>MSc Security and Strategic Studies - King&apos;s College London</li>
+  <li>BSc International Relations - University of Edinburgh</li>
+  <li>Certified Intelligence Analyst (Level 3)</li>
+</ul>
+`;
+
+function getStylePreviewHtml(preset: ResumeStylePreset) {
+  return getFormattedDocumentHtml({
+    title: "James Bond - Security Operations Resume",
+    docType: "resume",
+    templateName: preset.templateName,
+    templateConfig: preset.templateConfig,
+    htmlContent: JAMES_BOND_SAMPLE_RESUME,
+  });
+}
 
 function FieldLabel({ children }: { children: ReactNode }) {
   return <span className={`${styles.fieldLabel} text-sm font-medium ll-title`}>{children}</span>;
@@ -280,10 +330,12 @@ function ResumeStyleCard({
   preset,
   isActive,
   onSelect,
+  previewHtml,
 }: {
   preset: ResumeStylePreset;
   isActive: boolean;
   onSelect: () => void;
+  previewHtml: string;
 }) {
   return (
     <button
@@ -292,19 +344,9 @@ function ResumeStyleCard({
       className={`${styles.styleCard} ${styles[preset.previewClassName]} ${isActive ? styles.styleCardActive : ""}`}
     >
       <div className={styles.stylePreviewCanvas}>
-        <div className={styles.stylePreviewSheet}>
-          <div className={styles.stylePreviewHeader} />
-          <div className={styles.stylePreviewSummary} />
-          <div className={styles.stylePreviewBody}>
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className={styles.stylePreviewFooter}>
-            <span />
-            <span />
-            <span />
-          </div>
+        <div className={styles.stylePreviewTag}>James Bond Demo</div>
+        <div className={styles.stylePreviewViewport}>
+          <div className={styles.stylePreviewScale} dangerouslySetInnerHTML={{ __html: previewHtml }} />
         </div>
       </div>
       <div className={styles.styleCardCopy}>
@@ -408,6 +450,10 @@ export default function ProcurementPage() {
     () => resumeStylePresets.find((preset) => preset.id === selectedStyleId) ?? resumeStylePresets[0],
     [selectedStyleId],
   );
+  const stylePreviewMap = useMemo<Record<ResumeStylePresetId, string>>(() => {
+    const entries = resumeStylePresets.map((preset) => [preset.id, getStylePreviewHtml(preset)] as const);
+    return Object.fromEntries(entries) as Record<ResumeStylePresetId, string>;
+  }, []);
 
   useEffect(() => subscribeToAuthTokenChanges(() => setUserMeta(getCurrentUserMeta())), []);
 
@@ -906,6 +952,7 @@ export default function ProcurementPage() {
                     preset={preset}
                     isActive={selectedStyle.id === preset.id}
                     onSelect={() => setSelectedStyleId(preset.id)}
+                    previewHtml={stylePreviewMap[preset.id]}
                   />
                 ))}
               </div>
