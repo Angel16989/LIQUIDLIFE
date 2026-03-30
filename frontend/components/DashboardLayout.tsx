@@ -17,13 +17,13 @@ export default function DashboardLayout({ title, children }: DashboardLayoutProp
     <div className="liquid-template-shell min-h-screen text-zinc-900">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-      <div className="md:pl-72">
+      <div className="relative md:pl-80">
         <TopNavbar title={title} onMenuClick={() => setIsSidebarOpen(true)} />
-        <main className="mx-auto max-w-7xl p-4 sm:p-6">
-          <div className="liquid-template-main border border-white/40 bg-white/75 p-4 shadow-2xl backdrop-blur-sm sm:p-6">
+        <main className="mx-auto max-w-[90rem] p-4 sm:p-6 lg:p-8">
+          <div className="liquid-template-main p-4 sm:p-6 lg:p-8">
             <div className="space-y-6">
               <VerificationComingSoonNotice />
-            {children}
+              {children}
             </div>
           </div>
         </main>

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import DashboardCards, { type DashboardCard } from "@/components/DashboardCards";
+import DashboardLayout from "@/components/DashboardLayout";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { API_BASE_URL } from "@/lib/api";
 import { authFetch, clearAuthToken } from "@/lib/auth";
-import VerificationComingSoonNotice from "@/components/VerificationComingSoonNotice";
 
 type DashboardLink = {
   title: string;
@@ -70,43 +71,110 @@ export default function DashboardPage() {
       ]
     : links;
 
+  const overviewCards: DashboardCard[] = [
+    {
+      label: "Active Modules",
+      value: String(visibleLinks.length),
+      delta: isAdmin ? "Admin controls included in this workspace" : "Core tools ready for daily use",
+    },
+    {
+      label: "Document Flow",
+      value: isAdmin ? "Resumes + letters" : "AI-tailored builder",
+      delta: "Draft, edit, preview, and export from the same system",
+    },
+    {
+      label: "Focus Areas",
+      value: "Career + Growth",
+      delta: "Jobs, learning, and consistency stay under one roof",
+    },
+    {
+      label: "Session Role",
+      value: isAdmin ? "Administrator" : "Member",
+      delta: "Secure sign-in, notifications, and approval-aware access",
+    },
+  ];
+
   return (
-    <main className="ll-page px-4 py-8 sm:px-6">
-      <div className="ll-container space-y-6">
-        <header className="ll-panel flex flex-wrap items-center justify-between gap-3 p-6">
+    <DashboardLayout title="Dashboard">
+      <section className="ll-panel p-6 sm:p-8">
+        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] ll-muted">Liquid Life</p>
-            <h1 className="mt-2 text-3xl font-semibold ll-title">Dashboard</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] ll-muted">Command Center</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-semibold tracking-tight ll-title sm:text-4xl">
+              Build momentum across jobs, documents, and the systems that support your work.
+            </h1>
+            <p className="mt-4 max-w-3xl text-base leading-7 ll-muted">
+              Liquid Life is set up as a controlled workspace rather than a loose collection of tools. Career ops,
+              resume building, approvals, learning, and consistency modules stay connected, but the interface remains
+              calm and easy to scan.
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link href={isAdmin ? "/admin-panel" : "/jobs"} className="ll-button-primary">
+                Open {isAdmin ? "Admin Panel" : "Jobs Workspace"}
+              </Link>
+              <Link href={isAdmin ? "/documents" : "/procurement"} className="ll-button-secondary">
+                Open {isAdmin ? "Documents" : "Procurement"}
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  clearAuthToken();
+                  window.location.href = "/";
+                }}
+                className="ll-button-secondary"
+              >
+                Logout
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              clearAuthToken();
-              window.location.href = "/";
-            }}
-            className="rounded-lg border border-white/55 bg-white/85 px-3 py-2 text-sm font-medium text-[#3b3168] transition hover:bg-white"
-          >
-            Logout
-          </button>
-        </header>
 
-        <VerificationComingSoonNotice />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+            <article className="ll-panel-soft p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] ll-muted">Workspace Shape</p>
+              <h2 className="mt-2 text-xl font-semibold ll-title">Everything is routed around action, not clutter.</h2>
+              <p className="mt-3 text-sm leading-7 ll-muted">
+                The navigation now separates workspace, career builder, and momentum modules so the system reads faster.
+              </p>
+            </article>
+            <article className="ll-panel-soft p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] ll-muted">Live Flow</p>
+              <h2 className="mt-2 text-xl font-semibold ll-title">Resume building, documents, and job tracking connect cleanly.</h2>
+              <p className="mt-3 text-sm leading-7 ll-muted">
+                You can move from procurement into documents, then link those outputs straight into applications.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
 
-        <section className="grid gap-5 md:grid-cols-3">
+      <DashboardCards cards={overviewCards} />
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] ll-muted">Quick Modules</p>
+            <h2 className="mt-2 text-2xl font-semibold ll-title">Open the part of the system you need next.</h2>
+          </div>
+          <div className="ll-soft-chip hidden sm:inline-flex">Light workspace active</div>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {visibleLinks.map((item) => (
             <article key={item.title} className="ll-panel p-5">
-              <h2 className="text-xl font-semibold ll-title">{item.title}</h2>
-              <p className="mt-2 text-sm ll-muted">{item.description}</p>
-              <Link
-                href={item.href}
-                className="mt-4 inline-flex rounded-lg bg-[#4f3f85] px-3 py-2 text-sm font-semibold text-white transition hover:brightness-110"
-              >
-                Open {item.title}
-              </Link>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] ll-muted">Module</p>
+              <h3 className="mt-3 text-2xl font-semibold ll-title">{item.title}</h3>
+              <p className="mt-3 text-sm leading-7 ll-muted">{item.description}</p>
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#58708d]">Open now</span>
+                <Link href={item.href} className="ll-button-primary">
+                  Launch
+                </Link>
+              </div>
             </article>
           ))}
-        </section>
-      </div>
-    </main>
+        </div>
+      </section>
+    </DashboardLayout>
   );
 }
