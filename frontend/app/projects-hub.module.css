@@ -131,6 +131,38 @@
   font-size: 1.02rem;
 }
 
+.heroFocusGrid {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.7rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.heroFocusCard {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(243, 247, 255, 0.78) 100%);
+  padding: 1rem 1.05rem;
+  box-shadow: 0 14px 28px rgba(76, 80, 110, 0.08);
+}
+
+.heroFocusLabel {
+  display: inline-block;
+  color: #46628f;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.heroFocusText {
+  margin-top: 0.55rem;
+  color: #54637e;
+  font-size: 0.93rem;
+  line-height: 1.6;
+}
+
 .metricGrid {
   display: grid;
   gap: 0.9rem;
@@ -303,6 +335,14 @@
   box-shadow: 0 24px 42px rgba(76, 82, 123, 0.18);
 }
 
+.highlightEyebrow {
+  color: #5873a1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
 .repoSectionHeader {
   margin-top: 0.2rem;
 }
@@ -398,6 +438,7 @@
 }
 
 @media (max-width: 900px) {
+  .heroFocusGrid,
   .metricGrid,
   .heroActions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -409,6 +450,7 @@
     padding-block: 1.45rem;
   }
 
+  .heroFocusGrid,
   .metricGrid,
   .heroActions {
     grid-template-columns: 1fr;

@@ -16,10 +16,20 @@ type GitHubRepo = {
   topics?: string[];
 };
 
-const PROJECT_OWNER = process.env.NEXT_PUBLIC_SITE_OWNER?.trim() || "Rasik Tiwari";
 const GITHUB_USERNAME = process.env.NEXT_PUBLIC_GITHUB_USERNAME?.trim() || "Angel16989";
 const LIQUIDLIFE_APP_URL = process.env.NEXT_PUBLIC_LIQUIDLIFE_APP_URL?.trim() || "https://liquidlife.rasikn.com";
 const PORTFOLIO_URL = process.env.NEXT_PUBLIC_PORTFOLIO_URL?.trim() || "https://rasiktiwari.com.au";
+
+function repoSearchText(repo: GitHubRepo) {
+  return [repo.name, repo.description || "", repo.language || "", (repo.topics || []).join(" ")]
+    .join(" ")
+    .toLowerCase();
+}
+
+function matchesKeywords(repo: GitHubRepo, keywords: string[]) {
+  const haystack = repoSearchText(repo);
+  return keywords.some((keyword) => haystack.includes(keyword));
+}
 
 function buildGeneralSummary(repo: GitHubRepo) {
   if (repo.description?.trim()) {
@@ -28,6 +38,9 @@ function buildGeneralSummary(repo: GitHubRepo) {
 
   const lower = repo.name.toLowerCase();
 
+  if (lower.includes("data") || lower.includes("analytics") || lower.includes("dashboard") || lower.includes("report")) {
+    return "Data-focused project centered on reporting, operational visibility, and clearer decision support.";
+  }
   if (lower.includes("liquidlife")) {
     return "Full-stack life management product covering job tracking, documents, admin workflows, and deployment automation.";
   }
@@ -117,7 +130,26 @@ export default async function HomePage() {
 
   const projects = await getGitHubProjects();
   const githubProfileUrl = `https://github.com/${GITHUB_USERNAME}`;
-  const featuredProjects = projects.slice(0, 3);
+  const dataProjectsCount = projects.filter((project) =>
+    matchesKeywords(project, ["data", "analytics", "dashboard", "report", "sql", "python"]),
+  ).length;
+  const supportProjectsCount = projects.filter((project) =>
+    matchesKeywords(project, ["helpdesk", "support", "admin", "endpoint", "m365", "incident", "cloud"]),
+  ).length;
+  const featuredProjects = [...projects]
+    .sort((left, right) => {
+      const leftScore =
+        (matchesKeywords(left, ["liquidlife", "data", "analytics", "dashboard", "report", "sql", "python"]) ? 3 : 0) +
+        (matchesKeywords(left, ["helpdesk", "support", "admin", "endpoint", "m365", "incident", "cloud"]) ? 2 : 0) +
+        (getLiveRunUrl(left) ? 1 : 0);
+      const rightScore =
+        (matchesKeywords(right, ["liquidlife", "data", "analytics", "dashboard", "report", "sql", "python"]) ? 3 : 0) +
+        (matchesKeywords(right, ["helpdesk", "support", "admin", "endpoint", "m365", "incident", "cloud"]) ? 2 : 0) +
+        (getLiveRunUrl(right) ? 1 : 0);
+
+      return rightScore - leftScore || Date.parse(right.updated_at) - Date.parse(left.updated_at);
+    })
+    .slice(0, 3);
   const liveProjectsCount = projects.filter((project) => Boolean(getLiveRunUrl(project))).length;
   const latestProject = projects[0];
 
@@ -135,47 +167,67 @@ export default async function HomePage() {
           <div className={styles.heroGrid}>
             <div className={styles.heroCopy}>
               <div className={styles.kickerRow}>
-                <p className="text-xs uppercase tracking-[0.28em] ll-muted">Welcome To My Projects</p>
-                <span className={styles.kickerChip}>GitHub Synced</span>
+                <p className="text-xs uppercase tracking-[0.28em] ll-muted">Rasik Tiwari</p>
+                <span className={styles.kickerChip}>Data + IT Support</span>
               </div>
               <h1 className="mt-3 max-w-4xl text-4xl font-semibold tracking-tight ll-title sm:text-5xl">
-                {PROJECT_OWNER}
-                {" "}
-                ships public projects across web, systems, automation, and product builds.
+                Building dependable reporting, support, and operational systems across data, automation, and web.
               </h1>
               <p className={`mt-4 max-w-3xl text-base leading-7 ll-muted ${styles.heroLead}`}>
-                This site pulls directly from my public GitHub account, turns those repositories into a project index,
-                and links out to the live work that is already running. If you want the resume-first view, use my
-                portfolio site. If you want the actual project list, this is the domain for it.
+                I am moving deeper into data-focused work while keeping a strong IT support and systems operations
+                foundation. This landing page is the public portfolio layer for that mix: live GitHub work, operational
+                tooling, support-oriented builds, and product systems like Liquid Life.
               </p>
+
+              <div className={styles.heroFocusGrid}>
+                <div className={styles.heroFocusCard}>
+                  <span className={styles.heroFocusLabel}>Data Analysis</span>
+                  <p className={styles.heroFocusText}>Reporting, operational visibility, and cleaner decision support.</p>
+                </div>
+                <div className={styles.heroFocusCard}>
+                  <span className={styles.heroFocusLabel}>IT Support</span>
+                  <p className={styles.heroFocusText}>Practical systems thinking, troubleshooting, and service workflow discipline.</p>
+                </div>
+                <div className={styles.heroFocusCard}>
+                  <span className={styles.heroFocusLabel}>Automation</span>
+                  <p className={styles.heroFocusText}>Internal tools and repeatable processes that reduce manual overhead.</p>
+                </div>
+              </div>
 
               <div className={styles.metricGrid}>
                 <div className={styles.metricCard}>
-                  <span className={styles.metricValue}>{projects.length || "0"}</span>
-                  <span className={styles.metricLabel}>Public repositories</span>
+                  <span className={styles.metricValue}>{dataProjectsCount || "0"}</span>
+                  <span className={styles.metricLabel}>Data / reporting projects</span>
+                </div>
+                <div className={styles.metricCard}>
+                  <span className={styles.metricValue}>{supportProjectsCount || "0"}</span>
+                  <span className={styles.metricLabel}>Support / systems builds</span>
                 </div>
                 <div className={styles.metricCard}>
                   <span className={styles.metricValue}>{liveProjectsCount}</span>
-                  <span className={styles.metricLabel}>Live destinations</span>
-                </div>
-                <div className={styles.metricCard}>
-                  <span className={styles.metricValue}>{latestProject ? formatDate(latestProject.updated_at) : "Live"}</span>
-                  <span className={styles.metricLabel}>Latest GitHub update</span>
+                  <span className={styles.metricLabel}>Live project destinations</span>
                 </div>
               </div>
             </div>
 
             <div className={styles.heroRail}>
               <div className={styles.heroRailCard}>
-                <p className={styles.railEyebrow}>Portfolio Layer</p>
-                <h2 className="mt-2 text-3xl font-semibold ll-title">One domain, multiple products.</h2>
+                <p className={styles.railEyebrow}>Current Direction</p>
+                <h2 className="mt-2 text-3xl font-semibold ll-title">Data analyst mindset, support engineer discipline.</h2>
                 <p className="mt-3 text-sm leading-7 ll-muted">
-                  The root experience is now a project showroom. Product-specific tools stay separated so the public
-                  site remains clean while the software still runs live.
+                  The strongest thread through my work is turning noisy operational work into clearer systems. That can
+                  mean reporting, support tooling, workflow automation, or full-stack products that make everyday work
+                  easier to run.
                 </p>
               </div>
 
               <div className={styles.heroActions}>
+                <a
+                  href="#projects"
+                  className={`ll-pill-btn flex items-center justify-center px-4 py-3 text-sm font-semibold ${styles.heroActionPrimary}`}
+                >
+                  Browse Projects
+                </a>
                 <a
                   href={githubProfileUrl}
                   className={`ll-pill-btn flex items-center justify-center px-4 py-3 text-sm font-semibold ${styles.heroAction}`}
@@ -190,7 +242,7 @@ export default async function HomePage() {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  View Portfolio
+                  Resume Site
                 </a>
                 <a
                   href={LIQUIDLIFE_APP_URL}
@@ -206,17 +258,21 @@ export default async function HomePage() {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Import From GitHub
+                  Import Repo
                 </a>
               </div>
 
               <div className={styles.signalStack}>
                 <div className={styles.signalCard}>
-                  <span className={styles.signalLabel}>Primary destination</span>
-                  <p className={styles.signalValue}>rasikn.com</p>
+                  <span className={styles.signalLabel}>Positioning</span>
+                  <p className={styles.signalValue}>Data analysis + IT support + systems operations</p>
                 </div>
                 <div className={styles.signalCard}>
-                  <span className={styles.signalLabel}>App route</span>
+                  <span className={styles.signalLabel}>Latest GitHub update</span>
+                  <p className={styles.signalValue}>{latestProject ? formatDate(latestProject.updated_at) : "Live"}</p>
+                </div>
+                <div className={styles.signalCard}>
+                  <span className={styles.signalLabel}>Live app route</span>
                   <p className={styles.signalValue}>liquidlife.rasikn.com</p>
                 </div>
               </div>
@@ -228,91 +284,64 @@ export default async function HomePage() {
           <article className={`ll-panel p-6 ${styles.sectionPanel}`}>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className={`text-xs uppercase tracking-[0.24em] ll-muted ${styles.sectionEyebrow}`}>Live Destinations</p>
-                <h2 className="mt-2 text-3xl font-semibold ll-title">Projects with real links</h2>
+                <p className={`text-xs uppercase tracking-[0.24em] ll-muted ${styles.sectionEyebrow}`}>What I Bring</p>
+                <h2 className="mt-2 text-3xl font-semibold ll-title">A blend of analysis, support, and implementation.</h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 ll-muted">
-                  Live run links stay selective. Right now that means the Liquid Life app and the personal portfolio
-                  website, instead of pretending every repository already has a deployed environment.
+                  The portfolio direction is shifting away from generic “builder” language and toward the kind of work I
+                  want to be known for: using data and systems thinking to improve support operations and day-to-day execution.
                 </p>
               </div>
               <div className="rounded-full border border-white/60 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#3d5fa8]">
-                GitHub-synced
+                Career narrative
               </div>
             </div>
 
             <div className={`mt-6 grid gap-4 md:grid-cols-2 ${styles.featureGrid}`}>
               <div className={`ll-panel-soft px-5 py-5 ${styles.featureCard}`}>
-                <p className="text-xs uppercase tracking-[0.22em] ll-muted">Portfolio</p>
-                <h3 className="mt-2 text-2xl font-semibold ll-title">rasiktiwari.com.au</h3>
+                <p className="text-xs uppercase tracking-[0.22em] ll-muted">Analysis</p>
+                <h3 className="mt-2 text-2xl font-semibold ll-title">Operational reporting</h3>
                 <p className="mt-3 text-sm leading-7 ll-muted">
-                  Resume-first portfolio website focused on presentation, personal profile, and professional story.
+                  I want the portfolio to show stronger evidence of reporting, trend visibility, and structured thinking around operational data.
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <a
-                    href={PORTFOLIO_URL}
-                    className="ll-pill-btn px-3 py-2 text-sm font-semibold"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Live Run
-                  </a>
-                  <a
-                    href={`${githubProfileUrl}/Personal_website_vibecode`}
-                    className="ll-pill-btn px-3 py-2 text-sm font-semibold"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Repo
-                  </a>
+                  <span className={styles.tag}>Dashboards</span>
+                  <span className={styles.tag}>Reporting</span>
+                  <span className={styles.tag}>Trends</span>
                 </div>
               </div>
 
               <div className={`ll-panel-soft px-5 py-5 ${styles.featureCard}`}>
-                <p className="text-xs uppercase tracking-[0.22em] ll-muted">Product</p>
-                <h3 className="mt-2 text-2xl font-semibold ll-title">Liquid Life</h3>
+                <p className="text-xs uppercase tracking-[0.22em] ll-muted">Support</p>
+                <h3 className="mt-2 text-2xl font-semibold ll-title">IT support systems</h3>
                 <p className="mt-3 text-sm leading-7 ll-muted">
-                  Full-stack application covering jobs, documents, procurement AI, auth, approvals, and deployment.
+                  The other side of the story is support discipline: process clarity, troubleshooting, service workflows, and internal tools that reduce friction.
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <a
-                    href={LIQUIDLIFE_APP_URL}
-                    className="ll-pill-btn px-3 py-2 text-sm font-semibold"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Live Run
-                  </a>
-                  <a
-                    href={`${githubProfileUrl}/LIQUIDLIFE`}
-                    className="ll-pill-btn px-3 py-2 text-sm font-semibold"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Repo
-                  </a>
+                  <span className={styles.tag}>Troubleshooting</span>
+                  <span className={styles.tag}>Ops</span>
+                  <span className={styles.tag}>Workflow</span>
                 </div>
               </div>
             </div>
           </article>
 
           <aside className={`ll-panel p-6 ${styles.sectionPanel}`}>
-            <p className="text-xs uppercase tracking-[0.24em] ll-muted">How This Page Works</p>
-            <h2 className="mt-2 text-2xl font-semibold ll-title">Direct GitHub import</h2>
+            <p className="text-xs uppercase tracking-[0.24em] ll-muted">Live Structure</p>
+            <h2 className="mt-2 text-2xl font-semibold ll-title">Public portfolio on the root, product on the subdomain.</h2>
             <div className={`mt-4 space-y-3 text-sm ll-muted ${styles.infoStack}`}>
               <div className={`ll-panel-soft px-4 py-4 ${styles.infoCard}`}>
-                <p className="font-semibold ll-title">Source</p>
-                <p className="mt-1">This page calls the public GitHub API for {GITHUB_USERNAME} and rebuilds the list from live repository data.</p>
+                <p className="font-semibold ll-title">GitHub synced portfolio</p>
+                <p className="mt-1">This landing page pulls directly from the public GitHub API for {GITHUB_USERNAME} and keeps the project list current.</p>
               </div>
               <div className={`ll-panel-soft px-4 py-4 ${styles.infoCard}`}>
-                <p className="font-semibold ll-title">Project explanations</p>
+                <p className="font-semibold ll-title">Current resume site</p>
                 <p className="mt-1">
-                  Each repository shows either the GitHub description or a general summary generated from the repo name,
-                  language, and category.
+                  The older portfolio still exists as a resume-first view while this root domain grows into the fuller public portfolio.
                 </p>
               </div>
               <div className={`ll-panel-soft px-4 py-4 ${styles.infoCard}`}>
-                <p className="font-semibold ll-title">Main portfolio</p>
-                <p className="mt-1 break-all text-[#31476d]">{PORTFOLIO_URL}</p>
+                <p className="font-semibold ll-title">Current focus statement</p>
+                <p className="mt-1">Data analysis, support workflow improvement, and operational tools that solve practical business problems.</p>
               </div>
               <div className={`ll-panel-soft px-4 py-4 ${styles.infoCard}`}>
                 <p className="font-semibold ll-title">Live app subdomain</p>
@@ -325,12 +354,13 @@ export default async function HomePage() {
         {featuredProjects.length > 0 && (
           <section className="space-y-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.24em] ll-muted">Recently Updated</p>
-              <h2 className="mt-2 text-3xl font-semibold ll-title">Fresh work from GitHub</h2>
+              <p className="text-xs uppercase tracking-[0.24em] ll-muted">Direction Signals</p>
+              <h2 className="mt-2 text-3xl font-semibold ll-title">Projects that best reflect the shift.</h2>
             </div>
             <div className={`grid gap-5 lg:grid-cols-3 ${styles.highlightGrid}`}>
               {featuredProjects.map((project) => (
                 <article key={project.id} className={`ll-panel p-5 ${styles.highlightCard}`}>
+                  <p className={styles.highlightEyebrow}>Featured signal</p>
                   <h3 className="text-2xl font-semibold ll-title">{project.name}</h3>
                   <p className="mt-2 text-xs uppercase tracking-[0.2em] ll-muted">
                     Updated {formatDate(project.updated_at)}
@@ -342,11 +372,11 @@ export default async function HomePage() {
           </section>
         )}
 
-        <section className="space-y-4">
+        <section id="projects" className="space-y-4">
           <div className={`flex flex-wrap items-end justify-between gap-3 ${styles.repoSectionHeader}`}>
             <div>
               <p className="text-xs uppercase tracking-[0.24em] ll-muted">Imported From GitHub</p>
-              <h2 className="mt-2 text-3xl font-semibold ll-title">All public repositories</h2>
+              <h2 className="mt-2 text-3xl font-semibold ll-title">Public GitHub work</h2>
             </div>
             <a
               href={githubProfileUrl + "?tab=repositories"}
@@ -427,11 +457,11 @@ export default async function HomePage() {
         <section className={`ll-panel p-6 ${styles.appPanel}`}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.24em] ll-muted">App Access</p>
-              <h2 className="mt-2 text-2xl font-semibold ll-title">Liquid Life stays on its own subdomain</h2>
+              <p className="text-xs uppercase tracking-[0.24em] ll-muted">Live Product Layer</p>
+              <h2 className="mt-2 text-2xl font-semibold ll-title">Liquid Life stays separate from the public portfolio.</h2>
               <p className="mt-3 max-w-3xl text-sm leading-7 ll-muted">
-                This root domain is now the projects website. The actual product experience belongs on the app
-                subdomain so the portfolio and the software stay separate.
+                The root domain is now positioning and portfolio. The actual product stays on its own subdomain so the
+                public story and the software platform do not compete with each other.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
