@@ -6,7 +6,7 @@ import DashboardCards, { type DashboardCard } from "@/components/DashboardCards"
 import DashboardLayout from "@/components/DashboardLayout";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { API_BASE_URL } from "@/lib/api";
-import { authFetch, clearAuthToken } from "@/lib/auth";
+import { authFetch, logoutCurrentSession } from "@/lib/auth";
 
 type DashboardLink = {
   title: string;
@@ -119,8 +119,9 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => {
-                  clearAuthToken();
-                  window.location.href = "/";
+                  void logoutCurrentSession().finally(() => {
+                    window.location.href = "/";
+                  });
                 }}
                 className="ll-button-secondary"
               >

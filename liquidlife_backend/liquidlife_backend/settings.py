@@ -94,7 +94,7 @@ def parse_database_url(database_url: str) -> dict:
     return config
 
 
-DEBUG = env_bool("DEBUG", "DJANGO_DEBUG", default=True)
+DEBUG = env_bool("DEBUG", "DJANGO_DEBUG", default=False)
 SECRET_KEY = env("SECRET_KEY", "DJANGO_SECRET_KEY", required=True)
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "DJANGO_ALLOWED_HOSTS", default="127.0.0.1,localhost")
@@ -107,6 +107,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "accounts",
     "jobs",
@@ -168,9 +169,20 @@ else:
         }
     }
 
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": env("CACHE_LOCATION", default="liquidlife-default-cache"),
+    }
+}
+
+PASSWORD_MIN_LENGTH = int(env("PASSWORD_MIN_LENGTH", default="8"))
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": PASSWORD_MIN_LENGTH},
+    },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
@@ -209,23 +221,64 @@ if USE_X_FORWARDED_PROTO:
 SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", default=not DEBUG)
 SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", default=not DEBUG)
 CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", default=not DEBUG)
+SESSION_COOKIE_HTTPONLY = env_bool("SESSION_COOKIE_HTTPONLY", default=True)
+CSRF_COOKIE_HTTPONLY = env_bool("CSRF_COOKIE_HTTPONLY", default=True)
 SESSION_COOKIE_SAMESITE = env("SESSION_COOKIE_SAMESITE", default="Lax")
 CSRF_COOKIE_SAMESITE = env("CSRF_COOKIE_SAMESITE", default="Lax")
 SECURE_HSTS_SECONDS = int(env("SECURE_HSTS_SECONDS", default="0" if DEBUG else "31536000"))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=not DEBUG)
-SECURE_HSTS_PRELOAD = env_bool("SECURE_HSTS_PRELOAD", default=False)
+SECURE_HSTS_PRELOAD = env_bool("SECURE_HSTS_PRELOAD", default=not DEBUG)
 SECURE_CONTENT_TYPE_NOSNIFF = env_bool("SECURE_CONTENT_TYPE_NOSNIFF", default=True)
 SECURE_REFERRER_POLICY = env("SECURE_REFERRER_POLICY", default="strict-origin-when-cross-origin")
+SECURE_CROSS_ORIGIN_OPENER_POLICY = env("SECURE_CROSS_ORIGIN_OPENER_POLICY", default="same-origin")
+SECURE_CROSS_ORIGIN_RESOURCE_POLICY = env("SECURE_CROSS_ORIGIN_RESOURCE_POLICY", default="same-site")
 X_FRAME_OPTIONS = env("X_FRAME_OPTIONS", default="DENY")
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(env("DATA_UPLOAD_MAX_MEMORY_SIZE", default=str(10 * 1024 * 1024)))
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(env("FILE_UPLOAD_MAX_MEMORY_SIZE", default=str(10 * 1024 * 1024)))
+MAX_DOCUMENT_UPLOAD_BYTES = int(env("MAX_DOCUMENT_UPLOAD_BYTES", default=str(5 * 1024 * 1024)))
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+    "DEFAULT_RENDERER_CLASSES": (
+        ("rest_framework.renderers.JSONRenderer", "rest_framework.renderers.BrowsableAPIRenderer")
+        if DEBUG
+        else ("rest_framework.renderers.JSONRenderer",)
+    ),
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": env("THROTTLE_ANON_RATE", default="60/minute"),
+        "user": env("THROTTLE_USER_RATE", default="240/minute"),
+        "auth_register": env("THROTTLE_AUTH_REGISTER_RATE", default="5/hour"),
+        "auth_login": env("THROTTLE_AUTH_LOGIN_RATE", default="5/minute"),
+        "auth_refresh": env("THROTTLE_AUTH_REFRESH_RATE", default="30/minute"),
+        "auth_logout": env("THROTTLE_AUTH_LOGOUT_RATE", default="30/minute"),
+        "auth_google_login": env("THROTTLE_AUTH_GOOGLE_LOGIN_RATE", default="10/minute"),
+        "auth_forgot_password": env("THROTTLE_AUTH_FORGOT_PASSWORD_RATE", default="5/hour"),
+        "auth_reset_password": env("THROTTLE_AUTH_RESET_PASSWORD_RATE", default="10/hour"),
+        "auth_email_verification": env("THROTTLE_AUTH_EMAIL_VERIFICATION_RATE", default="5/hour"),
+        "auth_email_verify": env("THROTTLE_AUTH_EMAIL_VERIFY_RATE", default="20/hour"),
+        "auth_phone_start": env("THROTTLE_AUTH_PHONE_START_RATE", default="5/hour"),
+        "auth_phone_check": env("THROTTLE_AUTH_PHONE_CHECK_RATE", default="10/hour"),
+        "auth_email_action": env("THROTTLE_AUTH_EMAIL_ACTION_RATE", default="30/hour"),
+        "admin_write": env("THROTTLE_ADMIN_WRITE_RATE", default="60/minute"),
+    },
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(env("ACCESS_TOKEN_LIFETIME_MINUTES", default="30"))),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(env("REFRESH_TOKEN_LIFETIME_DAYS", default="7"))),
+    "ROTATE_REFRESH_TOKENS": env_bool("ROTATE_REFRESH_TOKENS", default=True),
+    "BLACKLIST_AFTER_ROTATION": env_bool("BLACKLIST_AFTER_ROTATION", default=True),
+    "UPDATE_LAST_LOGIN": env_bool("JWT_UPDATE_LAST_LOGIN", default=True),
 }
 
 LIQUIDLIFE_ADMIN_USERNAME = env("LIQUIDLIFE_ADMIN_USERNAME", default="LIQUIDLIFEADMIN")

@@ -8,6 +8,8 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from jobs.models import Document, Job
@@ -41,6 +43,7 @@ from .serializers import (
     ChangePasswordSerializer,
     ForgotPasswordSerializer,
     LoginSerializer,
+    LogoutSerializer,
     PhoneVerificationCheckSerializer,
     PhoneVerificationStartSerializer,
     RegisterSerializer,
@@ -144,6 +147,21 @@ def build_email_verification_url(request, user: User) -> str:
     return request.build_absolute_uri(f"{reverse('auth-email-verify')}?token={token}")
 
 
+def build_session_response(user: User) -> Response:
+    refresh = RefreshToken.for_user(user)
+    return Response(
+        {
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "is_admin": user.is_staff or user.is_superuser,
+            "username": user.username,
+            "must_change_password": must_change_password(user),
+            **build_verification_status_payload(user),
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
 def apply_authorization_decision(
     auth_request: AccountAuthorizationRequest,
     *,
@@ -227,8 +245,14 @@ def render_email_action_result(title: str, message: str, decision: str | None = 
     return HttpResponse(html)
 
 
+class ThrottledTokenRefreshView(TokenRefreshView):
+    permission_classes = [AllowAny]
+    throttle_scope = "auth_refresh"
+
+
 class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "auth_register"
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -254,6 +278,7 @@ class RegisterAPIView(APIView):
 
 class LoginAPIView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "auth_login"
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -265,20 +290,7 @@ class LoginAPIView(APIView):
         if ADMIN_PASSWORD and username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             admin_user = get_or_create_admin_actor()
             mark_user_login(admin_user)
-            refresh = RefreshToken.for_user(admin_user)
-            return Response(
-                {
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh),
-                    "is_admin": True,
-                    "username": admin_user.username,
-                    "must_change_password": False,
-                    "email_verified": True,
-                    "phone_verified": True,
-                    "phone_number": "",
-                },
-                status=status.HTTP_200_OK,
-            )
+            return build_session_response(admin_user)
 
         user = User.objects.filter(username=username).first()
         if user is None or not user.check_password(password):
@@ -308,22 +320,12 @@ class LoginAPIView(APIView):
             )
 
         mark_user_login(user)
-        refresh = RefreshToken.for_user(user)
-        return Response(
-            {
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
-                "is_admin": user.is_staff or user.is_superuser,
-                "username": user.username,
-                "must_change_password": must_change_password(user),
-                **build_verification_status_payload(user),
-            },
-            status=status.HTTP_200_OK,
-        )
+        return build_session_response(user)
 
 
 class GoogleLoginAPIView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "auth_google_login"
 
     def post(self, request):
         credential = str(request.data.get("credential", "")).strip()
@@ -386,22 +388,12 @@ class GoogleLoginAPIView(APIView):
             return Response({"detail": "Account is inactive."}, status=status.HTTP_403_FORBIDDEN)
 
         mark_user_login(user)
-        refresh = RefreshToken.for_user(user)
-        return Response(
-            {
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
-                "is_admin": user.is_staff or user.is_superuser,
-                "username": user.username,
-                "must_change_password": must_change_password(user),
-                **build_verification_status_payload(user),
-            },
-            status=status.HTTP_200_OK,
-        )
+        return build_session_response(user)
 
 
 class ForgotPasswordAPIView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "auth_forgot_password"
 
     def post(self, request):
         serializer = ForgotPasswordSerializer(data=request.data)
@@ -425,6 +417,7 @@ class ForgotPasswordAPIView(APIView):
 
 class ResetPasswordAPIView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "auth_reset_password"
 
     def post(self, request):
         serializer = ResetPasswordSerializer(data=request.data)
@@ -458,6 +451,7 @@ class VerificationStatusAPIView(APIView):
 
 class SendEmailVerificationAPIView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_scope = "auth_email_verification"
 
     def post(self, request):
         serializer = SendEmailVerificationSerializer(data=request.data)
@@ -502,6 +496,7 @@ class SendEmailVerificationAPIView(APIView):
 
 class VerifyEmailAPIView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "auth_email_verify"
 
     def get(self, request):
         token = str(request.query_params.get("token", "")).strip()
@@ -526,6 +521,7 @@ class VerifyEmailAPIView(APIView):
 
 class StartPhoneVerificationAPIView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_scope = "auth_phone_start"
 
     def post(self, request):
         serializer = PhoneVerificationStartSerializer(data=request.data)
@@ -549,6 +545,7 @@ class StartPhoneVerificationAPIView(APIView):
 
 class CheckPhoneVerificationAPIView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_scope = "auth_phone_check"
 
     def post(self, request):
         serializer = PhoneVerificationCheckSerializer(data=request.data)
@@ -614,6 +611,7 @@ class AdminEngagementAPIView(APIView):
 
 class AdminUserCreateAPIView(APIView):
     permission_classes = [IsAdminUser]
+    throttle_scope = "admin_write"
 
     def post(self, request):
         serializer = AdminCreateUserSerializer(data=request.data)
@@ -632,6 +630,7 @@ class AdminUserCreateAPIView(APIView):
 
 class AuthorizationRequestDecisionAPIView(APIView):
     permission_classes = [IsAdminUser]
+    throttle_scope = "admin_write"
 
     def post(self, request, id: int):
         decision = str(request.data.get("decision", "")).strip().lower()
@@ -661,6 +660,7 @@ class AuthorizationRequestDecisionAPIView(APIView):
 
 class AuthorizationRequestEmailActionAPIView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "auth_email_action"
 
     def get(self, request):
         token = str(request.query_params.get("token", "")).strip()
@@ -695,6 +695,7 @@ class AuthorizationRequestEmailActionAPIView(APIView):
 
 class AdminUserDeleteAPIView(APIView):
     permission_classes = [IsAdminUser]
+    throttle_scope = "admin_write"
 
     def delete(self, request, id: int):
         user = User.objects.filter(id=id).first()
@@ -713,6 +714,7 @@ class AdminUserDeleteAPIView(APIView):
 
 class AdminUserPasswordAPIView(APIView):
     permission_classes = [IsAdminUser]
+    throttle_scope = "admin_write"
 
     def post(self, request, id: int):
         user = User.objects.filter(id=id).first()
@@ -750,6 +752,7 @@ class AdminUserPasswordAPIView(APIView):
 
 class ChangePasswordAPIView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_scope = "auth_reset_password"
 
     def post(self, request):
         serializer = ChangePasswordSerializer(data=request.data)
@@ -775,3 +778,19 @@ class ChangePasswordAPIView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class LogoutAPIView(APIView):
+    permission_classes = [AllowAny]
+    throttle_scope = "auth_logout"
+
+    def post(self, request):
+        serializer = LogoutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            RefreshToken(serializer.validated_data["refresh"]).blacklist()
+        except TokenError:
+            pass
+
+        return Response({"detail": "Session cleared."}, status=status.HTTP_200_OK)

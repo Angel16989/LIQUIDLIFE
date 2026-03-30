@@ -6,6 +6,7 @@ from rest_framework import serializers
 from .models import AccountAuthorizationRequest, PasswordResetRequest
 
 ADMIN_USERNAME = getattr(settings, "LIQUIDLIFE_ADMIN_USERNAME", "LIQUIDLIFEADMIN")
+PASSWORD_MIN_LENGTH = int(getattr(settings, "PASSWORD_MIN_LENGTH", 8))
 
 
 class RegisterSerializer(serializers.Serializer):
@@ -13,8 +14,8 @@ class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(
         write_only=True,
-        min_length=8,
-        error_messages={"min_length": "Password must be at least 8 characters."},
+        min_length=PASSWORD_MIN_LENGTH,
+        error_messages={"min_length": f"Password must be at least {PASSWORD_MIN_LENGTH} characters."},
     )
 
     def validate_username(self, value: str) -> str:
@@ -68,13 +69,13 @@ class ResetPasswordSerializer(serializers.Serializer):
     token = serializers.CharField(max_length=128)
     password = serializers.CharField(
         write_only=True,
-        min_length=8,
-        error_messages={"min_length": "Password must be at least 8 characters."},
+        min_length=PASSWORD_MIN_LENGTH,
+        error_messages={"min_length": f"Password must be at least {PASSWORD_MIN_LENGTH} characters."},
     )
     confirm_password = serializers.CharField(
         write_only=True,
-        min_length=8,
-        error_messages={"min_length": "Password confirmation must be at least 8 characters."},
+        min_length=PASSWORD_MIN_LENGTH,
+        error_messages={"min_length": f"Password confirmation must be at least {PASSWORD_MIN_LENGTH} characters."},
     )
     human_check = serializers.BooleanField()
 
@@ -90,10 +91,10 @@ class ResetPasswordSerializer(serializers.Serializer):
 class AdminSetPasswordSerializer(serializers.Serializer):
     password = serializers.CharField(
         write_only=True,
-        min_length=8,
+        min_length=PASSWORD_MIN_LENGTH,
         required=False,
         allow_blank=True,
-        error_messages={"min_length": "Password must be at least 8 characters."},
+        error_messages={"min_length": f"Password must be at least {PASSWORD_MIN_LENGTH} characters."},
     )
     generate_password = serializers.BooleanField(required=False, default=False)
     require_password_change = serializers.BooleanField(required=False, default=True)
@@ -115,13 +116,13 @@ class ChangePasswordSerializer(serializers.Serializer):
     current_password = serializers.CharField(write_only=True)
     password = serializers.CharField(
         write_only=True,
-        min_length=8,
-        error_messages={"min_length": "Password must be at least 8 characters."},
+        min_length=PASSWORD_MIN_LENGTH,
+        error_messages={"min_length": f"Password must be at least {PASSWORD_MIN_LENGTH} characters."},
     )
     confirm_password = serializers.CharField(
         write_only=True,
-        min_length=8,
-        error_messages={"min_length": "Password confirmation must be at least 8 characters."},
+        min_length=PASSWORD_MIN_LENGTH,
+        error_messages={"min_length": f"Password confirmation must be at least {PASSWORD_MIN_LENGTH} characters."},
     )
 
     def validate(self, attrs):
@@ -166,6 +167,10 @@ class VerificationStatusSerializer(serializers.Serializer):
     phone_verification_configured = serializers.BooleanField()
     verification_required = serializers.BooleanField()
     verification_notice_enabled = serializers.BooleanField()
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField(max_length=512)
 
 
 class AccountAuthorizationRequestSerializer(serializers.ModelSerializer):

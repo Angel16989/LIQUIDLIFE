@@ -64,6 +64,7 @@ class DocumentFileAPIView(APIView):
         filename = document.file.name.rsplit("/", 1)[-1]
         content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
         response = FileResponse(document.file.open("rb"), as_attachment=False, filename=filename, content_type=content_type)
+        response["Cache-Control"] = "private, no-store, max-age=0"
         return response
 
 

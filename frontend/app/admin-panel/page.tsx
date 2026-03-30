@@ -6,7 +6,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { API_BASE_URL } from "@/lib/api";
-import { authFetch, clearAuthToken } from "@/lib/auth";
+import { authFetch, logoutCurrentSession } from "@/lib/auth";
 import { requestNotificationsRefresh } from "@/lib/notifications";
 
 type Engagement = {
@@ -352,8 +352,9 @@ export default function AdminPanelPage() {
             <button
               type="button"
               onClick={() => {
-                clearAuthToken();
-                window.location.href = "/";
+                void logoutCurrentSession().finally(() => {
+                  window.location.href = "/";
+                });
               }}
               className="ll-pill-btn px-3 py-2 text-sm font-semibold"
             >

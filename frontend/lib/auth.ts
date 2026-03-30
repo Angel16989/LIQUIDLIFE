@@ -129,6 +129,34 @@ export function clearAuthToken() {
   clearAuthSession();
 }
 
+export async function logoutCurrentSession(): Promise<void> {
+  const refresh = getRefreshToken();
+  const access = getAuthToken();
+
+  try {
+    if (refresh) {
+      const headers = new Headers({
+        "Content-Type": "application/json",
+      });
+
+      if (access) {
+        headers.set("Authorization", `Bearer ${access}`);
+      }
+
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ refresh }),
+        cache: "no-store",
+      });
+    }
+  } catch {
+    // Clear the local session regardless of network or blacklist errors.
+  } finally {
+    clearAuthSession();
+  }
+}
+
 export function getCurrentUsername(): string | null {
   const userMeta = getCurrentUserMeta();
   return userMeta?.username ?? null;

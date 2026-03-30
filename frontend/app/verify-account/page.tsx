@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/lib/api";
-import { authFetch, clearAuthToken, updateCurrentUserMeta } from "@/lib/auth";
+import { authFetch, logoutCurrentSession, updateCurrentUserMeta } from "@/lib/auth";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 type VerificationStatus = {
@@ -183,8 +183,9 @@ export default function VerifyAccountPage() {
           <button
             type="button"
             onClick={() => {
-              clearAuthToken();
-              window.location.href = "/";
+              void logoutCurrentSession().finally(() => {
+                window.location.href = "/";
+              });
             }}
             className="rounded-lg border border-white/55 bg-white/85 px-3 py-2 text-sm font-medium text-[#3b3168] transition hover:bg-white"
           >

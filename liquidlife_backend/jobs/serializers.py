@@ -1,3 +1,6 @@
+from urllib.parse import urlparse
+
+from django.conf import settings
 from django.urls import reverse
 from rest_framework import serializers
 
@@ -58,7 +61,38 @@ class DocumentSerializer(serializers.ModelSerializer):
         name = value.name.lower()
         if not (name.endswith(".pdf") or name.endswith(".docx") or name.endswith(".txt")):
             raise serializers.ValidationError("Only PDF, DOCX, and TXT files are supported.")
+
+        max_bytes = int(getattr(settings, "MAX_DOCUMENT_UPLOAD_BYTES", 5 * 1024 * 1024))
+        if getattr(value, "size", 0) > max_bytes:
+            raise serializers.ValidationError(f"File size must be {max_bytes // (1024 * 1024)}MB or smaller.")
+
+        allowed_content_types = {
+            ".pdf": {"application/pdf", "application/x-pdf", "application/octet-stream"},
+            ".docx": {
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/octet-stream",
+                "application/zip",
+            },
+            ".txt": {"text/plain", "application/octet-stream"},
+        }
+        extension = ".pdf" if name.endswith(".pdf") else ".docx" if name.endswith(".docx") else ".txt"
+        content_type = str(getattr(value, "content_type", "") or "").lower()
+        if content_type and content_type not in allowed_content_types[extension]:
+            raise serializers.ValidationError("The uploaded file type does not match the file extension.")
         return value
+
+    def validate_external_link(self, value: str) -> str:
+        normalized = (value or "").strip()
+        if not normalized:
+            return ""
+
+        parsed = urlparse(normalized)
+        if parsed.scheme != "https":
+            if getattr(settings, "DEBUG", False) and parsed.scheme == "http":
+                return normalized
+            raise serializers.ValidationError("Only HTTPS document links are allowed.")
+
+        return normalized
 
     def create(self, validated_data):
         upload = validated_data.get("file")

@@ -1,5 +1,4 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
     AdminEngagementAPIView,
@@ -13,10 +12,12 @@ from .views import (
     ForgotPasswordAPIView,
     GoogleLoginAPIView,
     LoginAPIView,
+    LogoutAPIView,
     RegisterAPIView,
     ResetPasswordAPIView,
     SendEmailVerificationAPIView,
     StartPhoneVerificationAPIView,
+    ThrottledTokenRefreshView,
     VerificationStatusAPIView,
     VerifyEmailAPIView,
 )
@@ -24,7 +25,8 @@ from .views import (
 urlpatterns = [
     path("register", RegisterAPIView.as_view(), name="auth-register"),
     path("login", LoginAPIView.as_view(), name="auth-login"),
-    path("refresh", TokenRefreshView.as_view(), name="auth-refresh"),
+    path("refresh", ThrottledTokenRefreshView.as_view(), name="auth-refresh"),
+    path("logout", LogoutAPIView.as_view(), name="auth-logout"),
     path("google-login", GoogleLoginAPIView.as_view(), name="auth-google-login"),
     path("forgot-password", ForgotPasswordAPIView.as_view(), name="auth-forgot-password"),
     path("reset-password", ResetPasswordAPIView.as_view(), name="auth-reset-password"),
