@@ -200,6 +200,21 @@ export default async function HomePage() {
                 builds behind that work.
               </p>
 
+              <div className={styles.heroDescriptorGrid}>
+                <div className={styles.heroDescriptorCard}>
+                  <span className={styles.heroDescriptorLabel}>Reporting Lens</span>
+                  <p className={styles.heroDescriptorText}>Metrics, dashboards, operational trends, and clearer decisions.</p>
+                </div>
+                <div className={styles.heroDescriptorCard}>
+                  <span className={styles.heroDescriptorLabel}>Support Grounding</span>
+                  <p className={styles.heroDescriptorText}>Real workflow, real users, and systems that need to hold up.</p>
+                </div>
+                <div className={styles.heroDescriptorCard}>
+                  <span className={styles.heroDescriptorLabel}>Build Capacity</span>
+                  <p className={styles.heroDescriptorText}>I can analyse the work and still build the tooling behind it.</p>
+                </div>
+              </div>
+
               <div className={styles.heroActionRow}>
                 <a href="#projects" className="ll-button-primary">Explore Projects</a>
                 <a href="#about" className="ll-button-secondary">About My Work</a>
@@ -239,6 +254,12 @@ export default async function HomePage() {
                   <span className={styles.tag}>IT Support</span>
                   <span className={styles.tag}>Automation</span>
                 </div>
+              </div>
+
+              <div className={styles.heroVisualCard} aria-hidden="true">
+                <span className={styles.heroVisualBadge}>Data</span>
+                <span className={`${styles.heroVisualBadge} ${styles.heroVisualBadgeAlt}`}>IT Ops</span>
+                <div className={styles.heroVisualImage} />
               </div>
 
               <div className={styles.signalStack}>
@@ -297,9 +318,14 @@ export default async function HomePage() {
         </section>
 
         <section id="capabilities" className="space-y-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] ll-muted">Capabilities</p>
-            <h2 className="mt-2 text-3xl font-semibold ll-title">The mix I want to be known for.</h2>
+          <div className={styles.sectionHeader}>
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] ll-muted">Capabilities</p>
+              <h2 className="mt-2 text-3xl font-semibold ll-title">The mix I want to be known for.</h2>
+            </div>
+            <p className={styles.sectionHeaderText}>
+              A portfolio that sits between analysis, support operations, and practical implementation.
+            </p>
           </div>
 
           <div className={`grid gap-4 md:grid-cols-3 ${styles.capabilityGrid}`}>
@@ -331,9 +357,14 @@ export default async function HomePage() {
 
         {featuredProjects.length > 0 && (
           <section className="space-y-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] ll-muted">Featured Work</p>
-              <h2 className="mt-2 text-3xl font-semibold ll-title">Projects that best reflect the direction.</h2>
+            <div className={styles.sectionHeader}>
+              <div>
+                <p className="text-xs uppercase tracking-[0.24em] ll-muted">Featured Work</p>
+                <h2 className="mt-2 text-3xl font-semibold ll-title">Projects that best reflect the direction.</h2>
+              </div>
+              <p className={styles.sectionHeaderText}>
+                These are the builds that best show the analyst-plus-operator direction of the portfolio.
+              </p>
             </div>
             <div className={`grid gap-5 lg:grid-cols-3 ${styles.highlightGrid}`}>
               {featuredProjects.map((project) => (
@@ -352,9 +383,12 @@ export default async function HomePage() {
 
         <section id="projects" className="space-y-4">
           <div className={`flex flex-wrap items-end justify-between gap-3 ${styles.repoSectionHeader}`}>
-            <div>
+            <div className={styles.sectionHeaderCompact}>
               <p className="text-xs uppercase tracking-[0.24em] ll-muted">GitHub Projects</p>
               <h2 className="mt-2 text-3xl font-semibold ll-title">Live GitHub-backed project index.</h2>
+              <p className={styles.sectionHeaderText}>
+                Pulled from GitHub, filtered through the story this portfolio is trying to tell.
+              </p>
             </div>
             <a
               href={githubProfileUrl + "?tab=repositories"}

@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Third-party static template assets.
     "template/**",
+    "inspirationfrom/**",
   ]),
 ]);
 
