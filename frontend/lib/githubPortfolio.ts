@@ -25,6 +25,7 @@ export type PortfolioProjectProfile = {
 
 export const GITHUB_USERNAME = process.env.NEXT_PUBLIC_GITHUB_USERNAME?.trim() || "Angel16989";
 export const LIQUIDLIFE_APP_URL = process.env.NEXT_PUBLIC_LIQUIDLIFE_APP_URL?.trim() || "https://liquidlife.rasikn.com";
+export const LINKEDIN_URL = process.env.NEXT_PUBLIC_LINKEDIN_URL?.trim() || "https://www.linkedin.com/in/rasik-tiwari";
 
 const DATA_KEYWORDS = ["data", "analytics", "dashboard", "report", "sql", "python", "excel", "powerbi"];
 const SUPPORT_KEYWORDS = ["helpdesk", "support", "admin", "endpoint", "m365", "incident", "cloud", "system"];
