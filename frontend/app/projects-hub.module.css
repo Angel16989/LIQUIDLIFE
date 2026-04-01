@@ -8,6 +8,80 @@
   z-index: 1;
 }
 
+.topBar {
+  display: grid;
+  gap: 1.2rem;
+  align-items: center;
+  border-radius: 1.4rem;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 242, 237, 0.92) 44%, rgba(242, 247, 255, 0.94) 100%);
+  box-shadow:
+    0 26px 60px rgba(75, 78, 109, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.brandBlock {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  text-decoration: none;
+}
+
+.brandKicker {
+  color: #6a7c9f;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.brandTitle {
+  color: #1f2d43;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.topNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.topNavLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.65rem;
+  padding: 0 0.95rem;
+  border: 1px solid rgba(104, 122, 161, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #50627f;
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.topNavLink:hover {
+  transform: translateY(-1px);
+  border-color: rgba(79, 111, 180, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+  color: #2a4166;
+}
+
+.topActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  align-items: center;
+}
+
 .backdrop {
   position: fixed;
   inset: 0;
@@ -95,6 +169,10 @@
   gap: 2rem;
 }
 
+.heroCopy {
+  position: relative;
+}
+
 .kickerRow {
   display: flex;
   flex-wrap: wrap;
@@ -129,6 +207,14 @@
 .heroLead {
   max-width: 44rem;
   font-size: 1.02rem;
+}
+
+.heroActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  align-items: center;
+  margin-top: 1.5rem;
 }
 
 .heroFocusGrid {
@@ -167,7 +253,7 @@
   display: grid;
   gap: 0.9rem;
   margin-top: 1.75rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .metricCard {
@@ -247,6 +333,38 @@
   color: #ffffff;
 }
 
+.capabilityGrid {
+  align-items: stretch;
+}
+
+.capabilityCard {
+  position: relative;
+  min-height: 100%;
+  border-radius: 1.2rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(244, 247, 252, 0.8) 100%);
+  box-shadow:
+    0 20px 36px rgba(78, 84, 123, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+.capabilityCard::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+}
+
+.capabilityEyebrow {
+  color: #5873a1;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
 .signalStack {
   display: grid;
   gap: 0.85rem;
@@ -304,10 +422,23 @@
   position: relative;
 }
 
+.sectionPanel {
+  border-radius: 1.28rem;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(247, 242, 238, 0.9) 48%, rgba(243, 248, 255, 0.92) 100%);
+  box-shadow:
+    0 22px 44px rgba(78, 82, 122, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
 .featureGrid,
 .highlightGrid,
 .repoGrid {
   align-items: stretch;
+}
+
+.highlightGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .featureCard {
@@ -415,6 +546,23 @@
     linear-gradient(140deg, rgba(255, 255, 255, 0.92) 0%, rgba(247, 242, 238, 0.88) 100%);
 }
 
+.contactPanel {
+  border-radius: 1.34rem;
+  background:
+    linear-gradient(140deg, rgba(39, 57, 93, 0.96) 0%, rgba(57, 77, 119, 0.94) 46%, rgba(117, 85, 129, 0.9) 100%);
+  box-shadow:
+    0 28px 52px rgba(57, 63, 99, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.contactPanel :global(.ll-title) {
+  color: #f3f7ff;
+}
+
+.contactPanel :global(.ll-muted) {
+  color: rgba(233, 239, 250, 0.82);
+}
+
 .appPanel {
   background:
     linear-gradient(140deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 246, 255, 0.88) 100%);
@@ -431,6 +579,10 @@
 }
 
 @media (min-width: 1024px) {
+  .topBar {
+    grid-template-columns: auto 1fr auto;
+  }
+
   .heroGrid {
     grid-template-columns: minmax(0, 1.16fr) minmax(20rem, 0.84fr);
     align-items: stretch;
@@ -443,9 +595,23 @@
   .heroActions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .highlightGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
+  .topBar {
+    justify-items: start;
+  }
+
+  .topNav,
+  .topActions,
+  .heroActionRow {
+    width: 100%;
+  }
+
   .hero {
     padding-block: 1.45rem;
   }
