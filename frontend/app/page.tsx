@@ -2,110 +2,18 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import styles from "./projects-hub.module.css";
-
-type GitHubRepo = {
-  id: number;
-  name: string;
-  html_url: string;
-  description: string | null;
-  homepage: string | null;
-  language: string | null;
-  stargazers_count: number;
-  fork: boolean;
-  updated_at: string;
-  topics?: string[];
-};
-
-const GITHUB_USERNAME = process.env.NEXT_PUBLIC_GITHUB_USERNAME?.trim() || "Angel16989";
-const LIQUIDLIFE_APP_URL = process.env.NEXT_PUBLIC_LIQUIDLIFE_APP_URL?.trim() || "https://liquidlife.rasikn.com";
-
-function repoSearchText(repo: GitHubRepo) {
-  return [repo.name, repo.description || "", repo.language || "", (repo.topics || []).join(" ")]
-    .join(" ")
-    .toLowerCase();
-}
-
-function matchesKeywords(repo: GitHubRepo, keywords: string[]) {
-  const haystack = repoSearchText(repo);
-  return keywords.some((keyword) => haystack.includes(keyword));
-}
-
-function buildGeneralSummary(repo: GitHubRepo) {
-  if (repo.description?.trim()) {
-    return repo.description.trim();
-  }
-
-  const lower = repo.name.toLowerCase();
-
-  if (lower.includes("data") || lower.includes("analytics") || lower.includes("dashboard") || lower.includes("report")) {
-    return "Data-focused project centered on reporting, operational visibility, and clearer decision support.";
-  }
-  if (lower.includes("liquidlife")) {
-    return "Full-stack life management product covering job tracking, documents, approvals, and end-to-end workflow automation.";
-  }
-  if (lower.includes("helpdesk") || lower.includes("support")) {
-    return "IT support project centered on ticket flow, troubleshooting process, and day-to-day service operations.";
-  }
-  if (lower.includes("admin") || lower.includes("endpoint") || lower.includes("m365")) {
-    return "Systems administration project built around device management, process control, and operational tooling.";
-  }
-  if (lower.includes("cloud")) {
-    return "Cloud-focused build covering deployment flow, service design, and infrastructure thinking.";
-  }
-  if (lower.includes("incident") || lower.includes("cyber")) {
-    return "Security-oriented project exploring response workflow, visibility, and operational resilience.";
-  }
-
-  if (repo.language) {
-    return `${repo.language}-based public project surfaced here as part of the broader portfolio.`;
-  }
-
-  return "Public GitHub project presented here as part of a portfolio focused on data, systems, and operational problem solving.";
-}
-
-function getLiveRunUrl(repo: GitHubRepo) {
-  const lower = repo.name.toLowerCase();
-  if (repo.homepage?.trim()) {
-    return repo.homepage.trim();
-  }
-  if (lower === "liquidlife") {
-    return LIQUIDLIFE_APP_URL;
-  }
-  return "";
-}
-
-async function getGitHubProjects(): Promise<GitHubRepo[]> {
-  try {
-    const response = await fetch(
-      `https://api.github.com/users/${encodeURIComponent(GITHUB_USERNAME)}/repos?sort=updated&per_page=100`,
-      {
-        headers: {
-          Accept: "application/vnd.github+json",
-        },
-        next: { revalidate: 3600 },
-      },
-    );
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const payload = (await response.json()) as GitHubRepo[];
-    return payload
-      .filter((repo) => !repo.fork)
-      .sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at));
-  } catch {
-    return [];
-  }
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-AU", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-}
+import {
+  GITHUB_USERNAME,
+  LIQUIDLIFE_APP_URL,
+  buildGeneralSummary,
+  formatDate,
+  getFeaturedProjects,
+  getGitHubProjects,
+  getLiveRunUrl,
+  getPortfolioCounts,
+  matchesKeywords,
+  toProjectSlug,
+} from "@/lib/githubPortfolio";
 
 export default async function HomePage() {
   const headerStore = await headers();
@@ -117,28 +25,8 @@ export default async function HomePage() {
 
   const projects = await getGitHubProjects();
   const githubProfileUrl = `https://github.com/${GITHUB_USERNAME}`;
-  const dataProjectsCount = projects.filter((project) =>
-    matchesKeywords(project, ["data", "analytics", "dashboard", "report", "sql", "python", "excel"]),
-  ).length;
-  const supportProjectsCount = projects.filter((project) =>
-    matchesKeywords(project, ["helpdesk", "support", "admin", "endpoint", "m365", "incident", "cloud"]),
-  ).length;
-  const featuredProjects = [...projects]
-    .sort((left, right) => {
-      const leftScore =
-        (matchesKeywords(left, ["data", "analytics", "dashboard", "report", "sql", "python"]) ? 4 : 0) +
-        (matchesKeywords(left, ["helpdesk", "support", "admin", "endpoint", "m365", "incident", "cloud"]) ? 3 : 0) +
-        (matchesKeywords(left, ["automation", "tool", "workflow", "ops"]) ? 2 : 0) +
-        (getLiveRunUrl(left) ? 1 : 0);
-      const rightScore =
-        (matchesKeywords(right, ["data", "analytics", "dashboard", "report", "sql", "python"]) ? 4 : 0) +
-        (matchesKeywords(right, ["helpdesk", "support", "admin", "endpoint", "m365", "incident", "cloud"]) ? 3 : 0) +
-        (matchesKeywords(right, ["automation", "tool", "workflow", "ops"]) ? 2 : 0) +
-        (getLiveRunUrl(right) ? 1 : 0);
-      return rightScore - leftScore || Date.parse(right.updated_at) - Date.parse(left.updated_at);
-    })
-    .slice(0, 3);
-  const liveProjectsCount = projects.filter((project) => Boolean(getLiveRunUrl(project))).length;
+  const { dataProjectsCount, supportProjectsCount, liveProjectsCount } = getPortfolioCounts(projects);
+  const featuredProjects = getFeaturedProjects(projects);
   const latestProject = projects[0];
 
   return (
@@ -375,6 +263,21 @@ export default async function HomePage() {
                     Updated {formatDate(project.updated_at)}
                   </p>
                   <p className="mt-4 text-sm leading-7 ll-muted">{buildGeneralSummary(project)}</p>
+                  <div className={`mt-5 flex flex-wrap gap-2 ${styles.repoActions}`}>
+                    <Link href={`/projects/${toProjectSlug(project.name)}`} className={`ll-pill-btn px-3 py-2 text-sm font-semibold ${styles.repoAction}`}>
+                      Project Page
+                    </Link>
+                    {getLiveRunUrl(project) ? (
+                      <a
+                        href={getLiveRunUrl(project)}
+                        className={`ll-pill-btn px-3 py-2 text-sm font-semibold ${styles.repoActionPrimary}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Live Run
+                      </a>
+                    ) : null}
+                  </div>
                 </article>
               ))}
             </div>
@@ -431,6 +334,9 @@ export default async function HomePage() {
                     </div>
 
                     <div className={`mt-6 flex flex-wrap gap-2 ${styles.repoActions}`}>
+                      <Link href={`/projects/${toProjectSlug(project.name)}`} className={`ll-pill-btn px-3 py-2 text-sm font-semibold ${styles.repoAction}`}>
+                        Project Page
+                      </Link>
                       <a
                         href={project.html_url}
                         className={`ll-pill-btn px-3 py-2 text-sm font-semibold ${styles.repoAction}`}
