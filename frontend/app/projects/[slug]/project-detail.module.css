@@ -188,11 +188,18 @@
 .heroVisual::after {
   content: "";
   position: absolute;
-  inset: auto 1.3rem -0.7rem auto;
-  width: 15rem;
-  height: 15rem;
-  background: url("/portfolio/hero-illustration.png") center bottom / contain no-repeat;
-  opacity: 0.92;
+  inset: auto 1.25rem 1.15rem auto;
+  width: 12.75rem;
+  height: 15.2rem;
+  border-radius: 1.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(10, 10, 24, 0.04) 0%, rgba(10, 10, 24, 0.24) 100%),
+    url("/profilepic.avif") center 24% / cover no-repeat;
+  box-shadow:
+    0 22px 38px rgba(10, 8, 24, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  opacity: 0.98;
 }
 
 .heroVisualChip {
@@ -416,7 +423,7 @@
   }
 
   .heroVisual::after {
-    width: 11rem;
-    height: 11rem;
+    width: 9.5rem;
+    height: 11.25rem;
   }
 }

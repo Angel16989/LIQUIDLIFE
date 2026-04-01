@@ -425,11 +425,18 @@
 
 .heroVisualImage {
   position: absolute;
-  inset: auto 1rem -0.8rem auto;
-  width: 15rem;
+  inset: auto 1rem 1rem auto;
+  width: 12.5rem;
   height: 15rem;
-  background: url("/portfolio/hero-illustration.png") center bottom / contain no-repeat;
-  opacity: 0.92;
+  border-radius: 1.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(10, 10, 24, 0.04) 0%, rgba(10, 10, 24, 0.24) 100%),
+    url("/profilepic.avif") center 24% / cover no-repeat;
+  box-shadow:
+    0 20px 36px rgba(8, 7, 22, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  opacity: 0.98;
 }
 
 .heroVisualBadge {
@@ -853,7 +860,7 @@
   }
 
   .heroVisualImage {
-    width: 11rem;
+    width: 9rem;
     height: 11rem;
   }
 
