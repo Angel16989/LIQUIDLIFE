@@ -118,8 +118,8 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
           <article className={`ll-panel p-6 ${styles.sectionPanel}`}>
             <div className={styles.sectionHeader}>
               <div>
-                <p className={styles.sectionEyebrow}>What This Project Shows</p>
-                <h2 className="mt-2 text-3xl font-semibold ll-title">Why it belongs in the portfolio.</h2>
+                <p className={styles.sectionEyebrow}>Summary</p>
+                <h2 className="mt-2 text-3xl font-semibold ll-title">Project context</h2>
               </div>
             </div>
             <p className="mt-4 text-sm leading-8 ll-muted">{profile.whyItMatters}</p>
@@ -130,7 +130,7 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
             <div className={styles.sectionHeader}>
               <div>
                 <p className={styles.sectionEyebrow}>Stack</p>
-                <h2 className="mt-2 text-2xl font-semibold ll-title">Technologies and signals.</h2>
+                <h2 className="mt-2 text-2xl font-semibold ll-title">Tools and implementation</h2>
               </div>
             </div>
             <div className={`mt-5 ${styles.stackRow}`}>
@@ -143,9 +143,9 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
           <div className={styles.sectionHeader}>
             <div>
               <p className={styles.sectionEyebrow}>Highlights</p>
-              <h2 className="mt-2 text-3xl font-semibold ll-title">Key signals from this repo.</h2>
+              <h2 className="mt-2 text-3xl font-semibold ll-title">Implementation notes</h2>
             </div>
-            <p className={styles.sectionText}>This section exists to make even non-web repositories easier to understand at a glance.</p>
+            <p className={styles.sectionText}>The repository is the source of truth for implementation details.</p>
           </div>
 
           <div className={`mt-6 ${styles.highlightGrid}`}>
@@ -162,16 +162,16 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
           <div className={styles.sectionHeader}>
             <div>
               <p className={styles.sectionEyebrow}>Context</p>
-              <h2 className="mt-2 text-3xl font-semibold ll-title">How to read this project.</h2>
+              <h2 className="mt-2 text-3xl font-semibold ll-title">Context and links</h2>
             </div>
-            <p className={styles.sectionText}>Some repos are apps, some are tools, some are experiments. This page gives each one enough framing to make sense.</p>
+            <p className={styles.sectionText}>This page summarises the project while keeping the source repository as the detailed technical record.</p>
           </div>
 
           <div className={`mt-6 ${styles.infoGrid}`}>
             <article className={`ll-panel-soft p-5 ${styles.infoBlock}`}>
               <p className={styles.highlightLabel}>Repository link</p>
               <p className="mt-3 text-sm leading-8 ll-muted">
-                The source of truth remains GitHub. This page exists to make the project legible as portfolio work before somebody leaves the site.
+                The source of truth remains GitHub; this page provides a concise summary of the work.
               </p>
             </article>
             <article className={`ll-panel-soft p-5 ${styles.infoBlock}`}>
@@ -188,7 +188,7 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
             <div className={styles.sectionHeader}>
               <div>
                 <p className={styles.sectionEyebrow}>Related Projects</p>
-                <h2 className="mt-2 text-3xl font-semibold ll-title">More portfolio work to explore.</h2>
+                <h2 className="mt-2 text-3xl font-semibold ll-title">Related public projects</h2>
               </div>
             </div>
 

@@ -2,195 +2,183 @@ import Image from "next/image";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import styles from "./projects-hub.module.css";
+import { OrbitCanvas, TerrainCanvas } from "./PortfolioEffects";
+import { caseStudies } from "@/content/caseStudies";
+import styles from "./portfolio-redesign.module.css";
 import {
   GITHUB_USERNAME,
   LINKEDIN_URL,
   LIQUIDLIFE_APP_URL,
-  buildGeneralSummary,
-  formatDate,
-  getFeaturedProjects,
-  getGitHubProjects,
-  getLiveRunUrl,
-  getPortfolioCounts,
-  matchesKeywords,
-  toProjectSlug,
 } from "@/lib/githubPortfolio";
 
-const journeyMilestones = [
+const marqueeItems = [
+  "Snowflake SQL",
+  "Tableau",
+  "Matillion ETL",
+  "Data validation",
+  "Forecasting support",
+  "Power BI",
+  "Excel analysis",
+  "Root cause analysis",
+  "Requirements clarification",
+  "Microsoft 365 / Azure AD",
+  "Python",
+  "Git / GitHub",
+];
+
+const toolkit = [
   {
-    eyebrow: "Early Spark",
-    title: "Inspired at home, then pulled deeper by curiosity.",
-    description:
-      "My interest in technology started early, and my dad was a big part of that. That first spark turned into a habit of opening things up, asking how they work, and learning by trying instead of waiting for perfect confidence.",
+    tag: "Layer 01",
+    title: "Business Intelligence",
+    items: ["SQL / Snowflake", "Tableau dashboards", "Matillion ETL support", "Excel analysis", "Power BI basics"],
   },
   {
-    eyebrow: "International Journey",
-    title: "Building a life and career in Australia without a straight-line path.",
-    description:
-      "My journey as an international student and professional in Australia has been shaped by persistence, adjustment, and real effort. It has not been a perfect path, but it has made me more grounded, adaptable, and deliberate about where I want to go next.",
+    tag: "Layer 02",
+    title: "Analysis & delivery",
+    items: ["Forecasting support", "Data validation", "Processing-rule checks", "Requirements clarification", "Root cause analysis"],
   },
   {
-    eyebrow: "Hands-On Growth",
-    title: "Learning through support work, systems, and experimentation.",
-    description:
-      "A lot of my growth has come from doing: supporting users, troubleshooting issues, working through live environments, and experimenting with tools, servers, and cloud setups outside formal work.",
-  },
-  {
-    eyebrow: "Current Direction",
-    title: "Moving toward data-focused roles without losing the practical edge.",
-    description:
-      "What I want next is work that combines analysis, problem solving, operational visibility, and real human usefulness. Data is the direction, but grounded systems thinking is still part of how I work.",
+    tag: "Layer 03",
+    title: "Technical foundation",
+    items: ["Microsoft 365 / Azure AD", "Python basics", "Git / GitHub", "API / JSON awareness", "Ticketing & documentation"],
   },
 ];
 
-const communityInvolvement = [
+const journey = [
   {
-    name: "GDG Brisbane",
-    label: "Community and events",
-    description:
-      "A space where I stay connected to technology beyond work, meet people who are building and learning, and stay involved in the wider Brisbane tech community in a way that feels active rather than passive.",
+    year: "2023-25",
+    phase: "Foundation",
+    title: "Bachelor of IT at Kent Institute",
+    body: "Studied data analytics, cloud, networking, cybersecurity and secure software, then shipped a full-stack capstone with auth, payments and an AI chatbot.",
   },
   {
-    name: "TechWalking",
-    label: "Connection and conversation",
-    description:
-      "I value communities that make tech feel more human. TechWalking reflects that side of me: learning through conversation, movement, and shared curiosity instead of only screens and job titles.",
+    year: "2024-26",
+    phase: "Grounding",
+    title: "IT Support Engineer at FLS",
+    body: "Frontline support across Windows, Microsoft 365, accounts and devices in an SLA-driven environment - the operational discipline that now underpins my data work.",
   },
   {
-    name: "Changcuti / cat rescue volunteering",
-    label: "Giving back",
-    description:
-      "Volunteering matters to me because it keeps perspective. I want my time in Australia and in tech to include contribution, care, and real community involvement beyond career growth or titles.",
-  },
-];
-
-const labExperiments = [
-  {
-    title: "Cloud VMs and servers",
-    description:
-      "I enjoy spinning up environments, testing ideas in the cloud, and learning what breaks, what scales, and what is actually practical.",
+    year: "2026",
+    phase: "The pivot",
+    title: "Into Business Intelligence",
+    body: "Moved into a data role at Lime Intelligence, applying that grounding to Snowflake, Tableau and Matillion across aviation and commercial reporting.",
   },
   {
-    title: "Modern and vintage devices",
-    description:
-      "I like the contrast between newer systems and older hardware. Exploring both helps me understand technology as something layered, not disposable.",
-  },
-  {
-    title: "Home-lab style curiosity",
-    description:
-      "A lot of my learning comes from trying things before I feel fully ready. That discomfort is often where the most useful growth happens.",
+    year: "Now",
+    phase: "Direction",
+    title: "Owning data quality",
+    body: "Focused on data integrity, forecasting inputs and production reporting - tracing every number back to its source and making it explainable.",
   },
 ];
 
-const beyondTech = [
+const experience = [
   {
-    title: "Running",
-    description: "I like doing things that keep me moving, reset my head, and build consistency outside screens.",
+    role: "Data Technician - BI & Analytics",
+    company: "Lime Intelligence",
+    location: "Australia",
+    period: "May 2026 - Present",
+    points: [
+      "Support aviation and commercial reporting across airport clients by validating source files, business rules and dashboard outputs.",
+      "Use Snowflake SQL to investigate data anomalies, duplicates, missing values and source-to-reporting mismatches.",
+      "Assist forecasting workstreams by researching alternative data sources and preparing input datasets for long-term market and passenger forecasts.",
+      "Validate processing rules and integrity checks across pipelines so transformation logic aligns with operator files and expected outputs.",
+      "Support Matillion-based budget and forecast processing with load checks, rule validation and post-processing reconciliation.",
+      "Partner with Customer Success, Product, Data and Frontend Engineering to diagnose issues, test fixes and improve automation.",
+      "Translate technical findings for non-technical stakeholders: what changed, why it happened, and what action is required.",
+      "Maintain documentation and repeatable processes for data loading, dashboard checks and recurring client data issues.",
+    ],
   },
   {
-    title: "Podcasts and news",
-    description: "I enjoy learning from different voices, staying aware of what is happening, and connecting tech to the broader world.",
-  },
-  {
-    title: "Communities and future ideas",
-    description: "Joining groups, supporting events, and even the idea of starting a podcast one day all come from the same place: curiosity and wanting to contribute.",
+    role: "IT Support Engineer",
+    company: "FLS",
+    location: "Australia",
+    period: "Jan 2024 - May 2026",
+    points: [
+      "Provided frontline support across Windows, Microsoft 365, accounts, devices and business apps in an SLA-driven environment.",
+      "Troubleshot access, hardware, software, network and user issues while documenting fixes and reducing repeat incidents.",
+      "Managed user provisioning, MFA support and Active Directory / Microsoft 365 administration with clear stakeholder communication.",
+      "Built the operational foundation that now supports business analysis, BI platform support and production issue investigation.",
+    ],
   },
 ];
 
-const photoMoments = [
+const selectedProjects = [
+  {
+    stack: "Research / Forecasting",
+    context: "Lime",
+    name: "Forecasting data-source research & analysis",
+    desc: "Researching and comparing external data sources to support long-term passenger and market forecasting assumptions - structured source notes, quality observations and forecast-input summaries for review.",
+  },
+  {
+    stack: "Snowflake / Rules",
+    context: "Lime",
+    name: "Data integrity & processing-rule validation",
+    desc: "Validating business and processing rules across ingestion and transformation so outputs match expected logic - checking source files, reference data and final dashboard values before gaps reach clients.",
+  },
+  {
+    stack: "Matillion / Snowflake",
+    context: "ETL",
+    name: "Budget data processing & ETL support",
+    desc: "Supported budget loading and processing with validation before publication - working monthly and financial-year datasets at the correct reporting granularity with consistent downstream outputs.",
+  },
+  {
+    stack: "Snowflake / Tableau",
+    context: "Production",
+    name: "Reporting discrepancy investigations",
+    desc: "Traced dashboard discrepancies from raw data through processing layers to final Tableau outputs; documented root causes and practical fixes for duplicates, mismatched totals and source handling.",
+  },
+  {
+    stack: "Collaboration",
+    context: "Product / Eng",
+    name: "Reporting automation & engineering collaboration",
+    desc: "Worked with frontend and engineering teams on reporting-platform improvements, access workflows and automation testing - verifying user-facing behaviour and outputs from a data-quality lens.",
+  },
+];
+
+const repos = [
+  {
+    name: "liquid-life",
+    desc: "Live product - habit and wellbeing web app",
+    href: LIQUIDLIFE_APP_URL,
+  },
+  {
+    name: "l9-fitness",
+    desc: "Capstone - secure full-stack platform with AI chatbot",
+    href: `https://github.com/${GITHUB_USERNAME}`,
+  },
+  {
+    name: "data-experiments",
+    desc: "SQL, Python and Tableau learning builds",
+    href: `https://github.com/${GITHUB_USERNAME}?tab=repositories`,
+  },
+];
+
+const communityMoments = [
   {
     title: "GDG Brisbane",
-    eyebrow: "Community",
-    description: "Showing up for local developer spaces, conversations, and community momentum.",
-    image: "/portfolio/moments/gdg-brisbane.jpeg",
-    size: "feature",
+    label: "Community",
+    image: "/gdg2.jpeg",
+    className: styles.momentFeature,
   },
   {
     title: "TechWalking",
-    eyebrow: "Connection",
-    description: "The kind of tech community that feels more human and less transactional.",
-    image: "/portfolio/moments/techwalking.jpeg",
-    size: "tall",
-  },
-  {
-    title: "Helping events happen",
-    eyebrow: "Volunteering",
-    description: "I like contributing to community spaces, not only attending them.",
-    image: "/portfolio/moments/gdg-host.jpeg",
-    size: "standard",
+    label: "Connection",
+    image: "/techwalking.jpeg",
+    className: "",
   },
   {
     title: "GDG Sydney",
-    eyebrow: "Exploration",
-    description: "Stepping outside one bubble and learning from broader communities.",
-    image: "/portfolio/moments/gdg-sydney.jpeg",
-    size: "wide",
+    label: "Exploration",
+    image: "/gdg%20sydney.jpeg",
+    className: "",
   },
   {
-    title: "Amazon User Groups",
-    eyebrow: "Builders",
-    description: "Staying close to people who actually ship, test, and share what they learn.",
-    image: "/portfolio/moments/amazon-user-groups.jpeg",
-    size: "standard",
+    title: "Meetups & talks",
+    label: "Learning in public",
+    image: "/AI%26Society.jpeg",
+    className: styles.momentWide,
   },
-  {
-    title: "Security talks",
-    eyebrow: "Learning",
-    description: "Useful growth often starts by listening to practitioners talk through real problems.",
-    image: "/portfolio/moments/sec-talks.jpeg",
-    size: "standard",
-  },
-  {
-    title: "AI & Society",
-    eyebrow: "Perspective",
-    description: "Technology gets more interesting when it is connected back to people and impact.",
-    image: "/portfolio/moments/ai-society.jpeg",
-    size: "wide",
-  },
-  {
-    title: "Bitcoin developer meetings",
-    eyebrow: "Curiosity",
-    description: "I like exploring systems that push me to think differently, even outside my core lane.",
-    image: "/portfolio/moments/bitcoin-developer-meetings.jpeg",
-    size: "standard",
-  },
-  {
-    title: "Support operations",
-    eyebrow: "Grounded work",
-    description: "A lot of my thinking still comes from practical support environments and real user problems.",
-    image: "/portfolio/moments/greenlight-msp.jpeg",
-    size: "standard",
-  },
-  {
-    title: "Capstone",
-    eyebrow: "Build and explain",
-    description: "Projects become more valuable when you can communicate what they solve and why they matter.",
-    image: "/portfolio/moments/capstone.jpeg",
-    size: "tall",
-  },
-  {
-    title: "Study outside the room",
-    eyebrow: "Reset",
-    description: "Some of the best reflection happens away from the desk, not only at the desk.",
-    image: "/portfolio/moments/kiama-beachstudy.jpeg",
-    size: "standard",
-  },
-  {
-    title: "Podcasts and future ideas",
-    eyebrow: "Beyond work",
-    description: "I like conversations, ideas, and the possibility of starting my own podcast one day.",
-    image: "/portfolio/moments/podcasting-love.jpeg",
-    size: "standard",
-  },
-  {
-    title: "Showing up well",
-    eyebrow: "Professional presence",
-    description: "Growth also means being present, prepared, and involved when opportunities come up.",
-    image: "/portfolio/moments/teqsa-represent.jpeg",
-    size: "wide",
-  },
-] as const;
+];
 
 export default async function HomePage() {
   const headerStore = await headers();
@@ -200,548 +188,371 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  const projects = await getGitHubProjects();
-  const githubProfileUrl = `https://github.com/${GITHUB_USERNAME}`;
-  const { dataProjectsCount, supportProjectsCount, liveProjectsCount } = getPortfolioCounts(projects);
-  const featuredProjects = getFeaturedProjects(projects);
-  const latestProject = projects[0];
-  const photoSpanClassMap = {
-    feature: styles.momentFeature,
-    wide: styles.momentWide,
-    tall: styles.momentTall,
-    standard: "",
-  } as const;
+  const year = new Date().getFullYear();
+
+  const stats = [
+    { value: "BI", label: "Snowflake · Tableau · Matillion" },
+    { value: "Data", label: "Aviation & commercial reporting" },
+    { value: "Trust", label: "Validation, reconciliation & root-cause analysis" },
+  ];
 
   return (
-    <main className={`ll-page px-4 py-8 sm:px-6 ${styles.shell}`}>
-      <div className={styles.backdrop} aria-hidden="true">
-        <span className={styles.glowOne} />
-        <span className={styles.glowTwo} />
-        <span className={styles.gridHalo} />
-      </div>
+    <main id="top" className={styles.page}>
+      <header className={styles.navWrap}>
+        <nav className={styles.nav} aria-label="Primary navigation">
+          <a href="#top" className={styles.brand}>
+            <span className={styles.brandName}>Rasik Tiwari</span>
+            <span className={styles.brandRole}>/ BI - Data</span>
+          </a>
 
-      <div className={`ll-container space-y-6 ${styles.stack}`}>
-        <header className={`ll-panel px-5 py-4 sm:px-6 ${styles.topBar}`}>
-          <Link href="/" className={styles.brandBlock}>
-            <span className={styles.brandKicker}>Rasik Tiwari</span>
-            <span className={styles.brandTitle}>Tech, Data & Community Portfolio</span>
-          </Link>
-
-          <nav className={styles.topNav}>
-            <a href="#about" className={styles.topNavLink}>About</a>
-            <a href="#journey" className={styles.topNavLink}>Journey</a>
-            <a href="#community" className={styles.topNavLink}>Community</a>
-            <a href="#moments" className={styles.topNavLink}>Moments</a>
-            <a href="#labs" className={styles.topNavLink}>Labs</a>
-            <a href="#projects" className={styles.topNavLink}>Projects</a>
-            <a href="#contact" className={styles.topNavLink}>Contact</a>
-          </nav>
-
-          <div className={styles.topActions}>
-            <a
-              href={githubProfileUrl}
-              className="ll-pill-btn px-4 py-2 text-sm font-semibold"
-              target="_blank"
-              rel="noreferrer"
-            >
-              GitHub
-            </a>
-            <a
-              href={LINKEDIN_URL}
-              className="ll-pill-btn px-4 py-2 text-sm font-semibold"
-              target="_blank"
-              rel="noreferrer"
-            >
-              LinkedIn
-            </a>
-            <a
-              href={LIQUIDLIFE_APP_URL}
-              className={`ll-pill-btn px-4 py-2 text-sm font-semibold ${styles.heroActionPrimary}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Liquid Life
-            </a>
+          <div className={styles.navLinks}>
+            <a href="#about">About</a>
+            <a href="#toolkit">Toolkit</a>
+            <a href="#work">Work</a>
+            <a href="#writing">Writing</a>
+            <a href="/resume">Resume</a>
           </div>
-        </header>
 
-        <section className={`ll-panel overflow-hidden p-6 sm:p-8 ${styles.hero}`}>
-          <div className={styles.heroMesh} aria-hidden="true" />
+          <a href="#contact" className={styles.navCta}>
+            Get in touch
+          </a>
+        </nav>
+      </header>
+
+      <section className={styles.hero} data-screen-label="Hero">
+        <TerrainCanvas className={styles.terrainCanvas} />
+        <div className={styles.heroScrim} />
+        <div className={styles.heroGlow} />
+
+        <div className={styles.heroInner}>
           <div className={styles.heroGrid}>
             <div className={styles.heroCopy}>
-              <div className={styles.kickerRow}>
-                <p className="text-xs uppercase tracking-[0.28em] ll-muted">Portfolio</p>
-                <span className={styles.kickerChip}>Human, curious, hands-on</span>
-              </div>
-              <h1 className="mt-3 max-w-4xl text-4xl font-semibold tracking-tight ll-title sm:text-5xl">
-                I am a tech professional who enjoys solving problems, experimenting with systems, helping people, and giving back to the community.
+              <p className={styles.kicker}>
+                <span className={styles.pulseDot} />
+                Brisbane, Australia · Business Intelligence · Data
+              </p>
+              <h1 className={styles.heroTitle}>
+                I trace data from raw source to the number a business can <em>trust</em>.
               </h1>
-              <p className={`mt-4 max-w-3xl text-base leading-7 ll-muted ${styles.heroLead}`}>
-                Brisbane-based and shaped by an international journey, I am moving toward more data-focused work while
-                staying grounded in IT support, systems thinking, and hands-on experimentation. I want this site to
-                show not just what I can build, but what I care about: people, learning, contribution, and real-world
-                problem solving.
+              <p className={styles.heroLead}>
+                Business Intelligence and Data Analyst working across aviation and commercial reporting - Snowflake SQL,
+                Tableau and Matillion - validating datasets, investigating discrepancies, and turning technical findings
+                into decisions non-technical teams can act on.
               </p>
-
-              <div className={styles.heroDescriptorGrid}>
-                <div className={styles.heroDescriptorCard}>
-                  <span className={styles.heroDescriptorLabel}>Curiosity</span>
-                  <p className={styles.heroDescriptorText}>I learn by trying things, breaking them, and understanding how they fit together.</p>
-                </div>
-                <div className={styles.heroDescriptorCard}>
-                  <span className={styles.heroDescriptorLabel}>Helping mindset</span>
-                  <p className={styles.heroDescriptorText}>Support work, volunteering, and community involvement all come from the same instinct.</p>
-                </div>
-                <div className={styles.heroDescriptorCard}>
-                  <span className={styles.heroDescriptorLabel}>Operational clarity</span>
-                  <p className={styles.heroDescriptorText}>I like turning messy environments into clearer systems, workflows, and decisions people can use.</p>
-                </div>
-              </div>
-
-              <div className={styles.heroActionRow}>
-                <a href="#about" className="ll-button-primary">Read My Story</a>
-                <a href="#projects" className="ll-button-secondary">Explore Projects</a>
-              </div>
-
-              <div className={styles.metricGrid}>
-                <div className={styles.metricCard}>
-                  <span className={styles.metricValue}>{projects.length || "0"}</span>
-                  <span className={styles.metricLabel}>Public repositories</span>
-                </div>
-                <div className={styles.metricCard}>
-                  <span className={styles.metricValue}>{dataProjectsCount || "0"}</span>
-                  <span className={styles.metricLabel}>Data / reporting signals</span>
-                </div>
-                <div className={styles.metricCard}>
-                  <span className={styles.metricValue}>{supportProjectsCount || "0"}</span>
-                  <span className={styles.metricLabel}>Support / systems builds</span>
-                </div>
-                <div className={styles.metricCard}>
-                  <span className={styles.metricValue}>{liveProjectsCount}</span>
-                  <span className={styles.metricLabel}>Live destinations</span>
-                </div>
+              <div className={styles.heroActions}>
+                <a href="#work" className={styles.primaryButton}>
+                  View My Work
+                </a>
+                <a href="#about" className={styles.secondaryButton}>
+                  Download Résumé
+                </a>
               </div>
             </div>
 
-            <div className={styles.heroRail}>
-              <div className={styles.heroRailCard}>
-                <p className={styles.railEyebrow}>What Drives Me</p>
-                <h2 className="mt-2 text-3xl font-semibold ll-title">Technology feels most meaningful to me when it helps people and connects communities.</h2>
-                <p className="mt-3 text-sm leading-7 ll-muted">
-                  I do care about systems, reporting, and technical depth, but I do not want my career to feel
-                  isolated from people. The best version of this journey includes support, contribution, curiosity,
-                  and growth beyond a job title.
+            <aside className={styles.queryPanel} aria-label="Data integrity summary">
+              <div className={styles.queryTop}>
+                <span>rasik@lime ~ integrity.sql</span>
+                <span className={styles.available}>open to roles</span>
+              </div>
+              <div className={styles.queryCode} aria-label="SQL reconciliation query">
+                <p>
+                  <span>SELECT</span> source, reporting, diff
                 </p>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <span className={styles.tag}>Community</span>
-                  <span className={styles.tag}>Learning</span>
-                  <span className={styles.tag}>Support</span>
-                  <span className={styles.tag}>Experimentation</span>
-                </div>
+                <p>
+                  <span>FROM</span> pipeline_reconciliation
+                </p>
+                <p>
+                  <span>WHERE</span> diff <span>&lt;&gt;</span> 0;
+                </p>
               </div>
-
-              <div className={styles.heroVisualCard} aria-hidden="true">
-                <span className={styles.heroVisualBadge}>Data</span>
-                <span className={`${styles.heroVisualBadge} ${styles.heroVisualBadgeAlt}`}>IT Ops</span>
-                <div className={styles.heroVisualImage} />
+              <div className={styles.queryRows}>
+                <p>
+                  <span>rows flagged</span>
+                  <strong>0 unresolved</strong>
+                </p>
+                <p>
+                  <span>stack</span>
+                  <strong>Snowflake - Tableau</strong>
+                </p>
+                <p>
+                  <span>now</span>
+                  <strong>Lime Intelligence</strong>
+                </p>
               </div>
-
-              <div className={styles.signalStack}>
-                <div className={styles.signalCard}>
-                  <span className={styles.signalLabel}>Positioning</span>
-                  <p className={styles.signalValue}>Data-focused, support-grounded, community-minded</p>
-                </div>
-                <div className={styles.signalCard}>
-                  <span className={styles.signalLabel}>Community signals</span>
-                  <p className={styles.signalValue}>GDG Brisbane, TechWalking, and volunteering matter to me</p>
-                </div>
-                <div className={styles.signalCard}>
-                  <span className={styles.signalLabel}>Latest update</span>
-                  <p className={styles.signalValue}>{latestProject ? formatDate(latestProject.updated_at) : "Live"}</p>
-                </div>
+              <div className={styles.queryLinks}>
+                <a href={`https://github.com/${GITHUB_USERNAME}`} target="_blank" rel="noreferrer">
+                  GitHub
+                </a>
+                <a href={LINKEDIN_URL} target="_blank" rel="noreferrer">
+                  LinkedIn
+                </a>
+                <a href={LIQUIDLIFE_APP_URL} target="_blank" rel="noreferrer">
+                  Liquid Life
+                </a>
               </div>
-            </div>
+            </aside>
           </div>
-        </section>
+        </div>
 
-        <section id="about" className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <article className={`ll-panel p-6 ${styles.sectionPanel}`}>
-            <p className={`text-xs uppercase tracking-[0.24em] ll-muted ${styles.sectionEyebrow}`}>About Me</p>
-            <h2 className="mt-2 text-3xl font-semibold ll-title">I enjoy technology most when it is practical, human, and worth sharing.</h2>
-            <div className="mt-4 space-y-4 text-sm leading-7 ll-muted">
-              <p>
-                I am a Brisbane-based tech professional with a hands-on background in IT support, troubleshooting,
-                systems work, and real-world problem solving. My interest in tech started early, with a lot of that
-                spark coming from my dad, and it grew into a habit of learning by opening things up and figuring them
-                out.
-              </p>
-              <p>
-                I am moving further toward data-focused work because I like turning messy environments into something
-                clearer: trends, reports, patterns, and decisions that people can actually use. But I do not want to
-                lose the hands-on side of my background. I still like systems, infrastructure, troubleshooting, and
-                experimenting with tools until I understand them properly.
-              </p>
-              <p>
-                My journey in Australia as an international student and professional has made me value persistence,
-                curiosity, and community a lot more deeply. Just as important, I want this site to show that I care
-                about more than work. I like helping people, contributing to communities, staying active, and making
-                time for learning outside formal roles.
-              </p>
-            </div>
-          </article>
+        <div className={styles.scrollCue} aria-hidden="true">
+          <span>scroll</span>
+          <i />
+        </div>
+      </section>
 
-          <aside className={`ll-panel p-6 ${styles.sectionPanel}`}>
-            <p className="text-xs uppercase tracking-[0.24em] ll-muted">Snapshot</p>
-            <h2 className="mt-2 text-2xl font-semibold ll-title">What I want this portfolio to communicate.</h2>
-            <div className={`mt-4 space-y-3 text-sm ll-muted ${styles.infoStack}`}>
-              <div className={`ll-panel-soft px-4 py-4 ${styles.infoCard}`}>
-                <p className="font-semibold ll-title">Curious by default</p>
-                <p className="mt-1">Cloud labs, servers, devices, and learning by opening systems up and trying things.</p>
-              </div>
-              <div className={`ll-panel-soft px-4 py-4 ${styles.infoCard}`}>
-                <p className="font-semibold ll-title">Helping mindset</p>
-                <p className="mt-1">Support users, contribute to communities, volunteer where I can, and share what I learn.</p>
-              </div>
-              <div className={`ll-panel-soft px-4 py-4 ${styles.infoCard}`}>
-                <p className="font-semibold ll-title">Growing in public</p>
-                <p className="mt-1">My journey has not been perfect or straight, but it has been real, persistent, and deliberate.</p>
-              </div>
-            </div>
-          </aside>
-        </section>
+      <div className={styles.marquee} aria-hidden="true">
+        <div className={styles.marqueeTrack}>
+          {[...marqueeItems, ...marqueeItems].map((item, index) => (
+            <span key={`${item}-${index}`}>{item}</span>
+          ))}
+        </div>
+      </div>
 
-        <section id="capabilities" className="space-y-4">
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] ll-muted">Capabilities</p>
-              <h2 className="mt-2 text-3xl font-semibold ll-title">The mix I want to be known for.</h2>
-            </div>
-            <p className={styles.sectionHeaderText}>
-              A portfolio that sits between analysis, support operations, and practical implementation.
-            </p>
-          </div>
-
-          <div className={`grid gap-4 md:grid-cols-3 ${styles.capabilityGrid}`}>
-            <article className={`ll-panel-soft p-5 ${styles.capabilityCard}`}>
-              <p className={styles.capabilityEyebrow}>Data Analysis</p>
-              <h3 className="mt-2 text-2xl font-semibold ll-title">Operational reporting</h3>
-              <p className="mt-3 text-sm leading-7 ll-muted">
-                Turning activity into useful reporting, trend tracking, and information that supports decisions.
-              </p>
+      <section className={styles.stats} aria-label="Portfolio summary">
+        <div className={styles.statsGrid}>
+          {stats.map((stat) => (
+            <article key={stat.label} className={styles.statCard}>
+              <strong className="">{stat.value}</strong>
+              <span>{stat.label}</span>
             </article>
+          ))}
+        </div>
+      </section>
 
-            <article className={`ll-panel-soft p-5 ${styles.capabilityCard}`}>
-              <p className={styles.capabilityEyebrow}>IT Support</p>
-              <h3 className="mt-2 text-2xl font-semibold ll-title">Service workflow</h3>
-              <p className="mt-3 text-sm leading-7 ll-muted">
-                Support process, user issues, admin tasks, and systems that keep operational work dependable.
-              </p>
+      <section id="about" className={styles.section}>
+        <div className={styles.aboutGrid}>
+          <div>
+            <p className={styles.sectionEyebrow}>01 - About me</p>
+            <h2 className={styles.sectionTitle}>I sit between the data, the engineers, and the people who need answers.</h2>
+          </div>
+          <div className={styles.bodyCopy}>
+            <p>
+              I am a Business Intelligence and data professional based in Australia, working across aviation and commercial
+              reporting. Day to day I validate source files, business rules and dashboard outputs - and chase down the
+              reason a number does not match before it ever reaches a client.
+            </p>
+            <p>
+              My path here ran through hands-on IT support, and that grounding still shows: I am comfortable in messy
+              environments, I document everything, and I can talk to Customer Success, Product and Engineering in the
+              language each of them needs.
+            </p>
+            <p>
+              What I care about is trust in the numbers - tracing a value from raw source through every processing layer
+              to the final Tableau view, and explaining what changed, why, and what to do about it.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="toolkit" className={`${styles.section} ${styles.darkSection}`}>
+        <div className={styles.sectionNarrow}>
+          <p className={styles.darkEyebrow}>02 - Core BI / BA toolkit</p>
+          <h2 className={styles.darkTitle}>
+            Three layers: intelligence, analysis and delivery, and the technical foundation under it.
+          </h2>
+        </div>
+        <div className={styles.toolkitGrid}>
+          {toolkit.map((column) => (
+            <article key={column.title} className={styles.toolkitCard}>
+              <p>{column.tag}</p>
+              <h3>{column.title}</h3>
+              <ul>
+                {column.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
             </article>
+          ))}
+        </div>
+      </section>
 
-            <article className={`ll-panel-soft p-5 ${styles.capabilityCard}`}>
-              <p className={styles.capabilityEyebrow}>Automation</p>
-              <h3 className="mt-2 text-2xl font-semibold ll-title">Practical tooling</h3>
-              <p className="mt-3 text-sm leading-7 ll-muted">
-                Internal tools and product builds that reduce manual effort and make workflows easier to manage.
-              </p>
-            </article>
-          </div>
-        </section>
-
-        <section id="journey" className="space-y-4">
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] ll-muted">My Journey</p>
-              <h2 className="mt-2 text-3xl font-semibold ll-title">Persistence, curiosity, and real effort shaped the path.</h2>
-            </div>
-            <p className={styles.sectionHeaderText}>
-              I do not come from a perfect straight-line story. That matters, because it explains why experimentation, growth, and effort are such a big part of how I work.
-            </p>
-          </div>
-
-          <div className={styles.timeline}>
-            {journeyMilestones.map((step) => (
-              <article key={step.title} className={`ll-panel p-5 ${styles.timelineCard}`}>
-                <p className={styles.timelineEyebrow}>{step.eyebrow}</p>
-                <h3 className="mt-2 text-2xl font-semibold ll-title">{step.title}</h3>
-                <p className="mt-3 text-sm leading-7 ll-muted">{step.description}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section id="community" className="space-y-4">
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] ll-muted">Community / Volunteering</p>
-              <h2 className="mt-2 text-3xl font-semibold ll-title">Work matters, but community matters too.</h2>
-            </div>
-            <p className={styles.sectionHeaderText}>
-              I want the site to show that giving back is not an afterthought. Community, volunteering, and showing up for people are part of how I want to build my life in tech.
-            </p>
-          </div>
-
-          <div className={styles.storyGrid}>
-            {communityInvolvement.map((item) => (
-              <article key={item.name} className={`ll-panel p-5 ${styles.storyCard}`}>
-                <p className={styles.storyEyebrow}>{item.label}</p>
-                <h3 className="mt-2 text-2xl font-semibold ll-title">{item.name}</h3>
-                <p className="mt-3 text-sm leading-7 ll-muted">{item.description}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section id="moments" className="space-y-4">
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] ll-muted">Moments / Field Notes</p>
-              <h2 className="mt-2 text-3xl font-semibold ll-title">The portfolio should show what I am around, not only what I say.</h2>
-            </div>
-            <p className={styles.sectionHeaderText}>
-              These moments matter because they show the real texture of the journey: communities, events, learning
-              environments, support work, experimentation, and the parts of life around the work itself.
-            </p>
-          </div>
-
-          <div className={styles.momentsGrid}>
-            {photoMoments.map((moment) => (
-              <article
-                key={moment.title}
-                className={`${styles.momentCard} ${photoSpanClassMap[moment.size]}`}
-              >
-                <div className={styles.momentMedia}>
-                  <Image
-                    src={moment.image}
-                    alt={moment.title}
-                    fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className={styles.momentImage}
-                  />
-                </div>
-                <div className={styles.momentContent}>
-                  <p className={styles.momentEyebrow}>{moment.eyebrow}</p>
-                  <h3 className={styles.momentTitle}>{moment.title}</h3>
-                  <p className={styles.momentDescription}>{moment.description}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section id="labs" className="space-y-4">
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] ll-muted">Labs / Experiments / Curiosity</p>
-              <h2 className="mt-2 text-3xl font-semibold ll-title">A lot of my learning comes from real experimentation.</h2>
-            </div>
-            <p className={styles.sectionHeaderText}>
-              One of my strongest traits is that I will try things even when I do not feel 100% ready yet. That is where a lot of the useful learning has happened.
-            </p>
-          </div>
-
-          <div className={styles.storyGrid}>
-            {labExperiments.map((item) => (
-              <article key={item.title} className={`ll-panel p-5 ${styles.storyCard}`}>
-                <p className={styles.storyEyebrow}>Hands-on exploration</p>
-                <h3 className="mt-2 text-2xl font-semibold ll-title">{item.title}</h3>
-                <p className="mt-3 text-sm leading-7 ll-muted">{item.description}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section id="beyond-tech" className="space-y-4">
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] ll-muted">Beyond Tech</p>
-              <h2 className="mt-2 text-3xl font-semibold ll-title">I do not want the site to feel one-dimensional.</h2>
-            </div>
-            <p className={styles.sectionHeaderText}>
-              The things I do outside work still say something about how I think: stay curious, stay active, keep learning, and make time for people and ideas.
-            </p>
-          </div>
-
-          <div className={styles.storyGrid}>
-            {beyondTech.map((item) => (
-              <article key={item.title} className={`ll-panel p-5 ${styles.storyCard}`}>
-                <p className={styles.storyEyebrow}>Outside work</p>
-                <h3 className="mt-2 text-2xl font-semibold ll-title">{item.title}</h3>
-                <p className="mt-3 text-sm leading-7 ll-muted">{item.description}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {featuredProjects.length > 0 && (
-          <section className="space-y-4">
-            <div className={styles.sectionHeader}>
+      <section id="journey" className={styles.section}>
+        <div className={styles.sectionNarrow}>
+          <p className={styles.sectionEyebrow}>03 - My journey</p>
+          <h2 className={styles.sectionTitle}>From fixing systems to trusting the numbers they produce.</h2>
+          <p className={styles.sectionIntro}>
+            A deliberate move from frontline IT support into BI and data - carrying the operational discipline forward,
+            not leaving it behind.
+          </p>
+        </div>
+        <div className={styles.timeline}>
+          {journey.map((item) => (
+            <article key={item.title} className={styles.timelineItem}>
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] ll-muted">Featured Work</p>
-                <h2 className="mt-2 text-3xl font-semibold ll-title">Projects that best reflect the direction.</h2>
+                <strong>{item.year}</strong>
+                <span>{item.phase}</span>
               </div>
-              <p className={styles.sectionHeaderText}>
-                These are the builds that best show the analyst-plus-operator direction of the portfolio.
-              </p>
-            </div>
-            <div className={`grid gap-5 lg:grid-cols-3 ${styles.highlightGrid}`}>
-              {featuredProjects.map((project) => (
-                <article key={project.id} className={`ll-panel p-5 ${styles.highlightCard}`}>
-                  <p className={styles.highlightEyebrow}>Featured signal</p>
-                  <h3 className="text-2xl font-semibold ll-title">{project.name}</h3>
-                  <p className="mt-2 text-xs uppercase tracking-[0.2em] ll-muted">
-                    Updated {formatDate(project.updated_at)}
-                  </p>
-                  <p className="mt-4 text-sm leading-7 ll-muted">{buildGeneralSummary(project)}</p>
-                  <div className={`mt-5 flex flex-wrap gap-2 ${styles.repoActions}`}>
-                    <Link href={`/projects/${toProjectSlug(project.name)}`} className={`ll-pill-btn px-3 py-2 text-sm font-semibold ${styles.repoAction}`}>
-                      Project Page
-                    </Link>
-                    {getLiveRunUrl(project) ? (
-                      <a
-                        href={getLiveRunUrl(project)}
-                        className={`ll-pill-btn px-3 py-2 text-sm font-semibold ${styles.repoActionPrimary}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Live Run
-                      </a>
-                    ) : null}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
+              <div>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
 
-        <section id="projects" className="space-y-4">
-          <div className={`flex flex-wrap items-end justify-between gap-3 ${styles.repoSectionHeader}`}>
-            <div className={styles.sectionHeaderCompact}>
-              <p className="text-xs uppercase tracking-[0.24em] ll-muted">GitHub Projects</p>
-              <h2 className="mt-2 text-3xl font-semibold ll-title">Live GitHub-backed project index.</h2>
-              <p className={styles.sectionHeaderText}>
-                Pulled from GitHub, filtered through the story this portfolio is trying to tell.
+      <section id="experience" className={`${styles.section} ${styles.experienceSection}`}>
+        <div className={styles.sectionNarrow}>
+          <p className={styles.sectionEyebrow}>04 - Experience</p>
+          <h2 className={styles.sectionTitle}>Where the work actually happens.</h2>
+        </div>
+        <div className={styles.experienceStack}>
+          {experience.map((role) => (
+            <article key={role.role} className={styles.experienceCard}>
+              <div className={styles.experienceHeader}>
+                <h3>{role.role}</h3>
+                <span>{role.period}</span>
+              </div>
+              <p className={styles.companyLine}>
+                {role.company} - {role.location}
               </p>
-            </div>
-            <a
-              href={githubProfileUrl + "?tab=repositories"}
-              className="ll-pill-btn px-4 py-2 text-sm font-semibold"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open GitHub Repositories
+              <ul>
+                {role.points.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+        <div className={styles.credentialGrid}>
+          <article>
+            <p>Education</p>
+            <h3>Bachelor of Information Technology</h3>
+            <span>Kent Institute Australia - 2023 to 2025</span>
+            <small>
+              Data analytics, cloud systems, networking, cybersecurity, secure software and AI. Capstone: full-stack
+              platform with authentication, payment workflow and an AI chatbot.
+            </small>
+          </article>
+          <article>
+            <p>Certifications and development</p>
+            <ul>
+              <li>CompTIA Security+ - in progress</li>
+              <li>Ongoing self-learning: SQL, Tableau, Snowflake, Matillion and BI reporting</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="work" className={styles.section}>
+        <div className={styles.sectionNarrow}>
+          <p className={styles.sectionEyebrow}>05 - Selected BI / data work</p>
+          <h2 className={styles.sectionTitle}>Workstreams where I owned the data-quality outcome.</h2>
+        </div>
+        <div className={styles.projectGrid}>
+          {selectedProjects.map((project) => (
+            <article key={project.name} className={styles.projectCard}>
+              <div>
+                <span>{project.stack}</span>
+                <small>{project.context}</small>
+              </div>
+              <h3>{project.name}</h3>
+              <p>{project.desc}</p>
+            </article>
+          ))}
+        </div>
+        <div className={styles.projectGrid}>
+          {caseStudies.map((study) => (
+            <article key={study.slug} className={styles.projectCard}>
+              <div><span>Case study</span><small>Anonymised</small></div>
+              <h3><a href={"/work/" + study.slug}>{study.title}</a></h3>
+              <p>{study.summary}</p>
+            </article>
+          ))}
+        </div>
+
+        <aside className={styles.githubStrip}>
+          <div>
+            <p>Also on GitHub - @{GITHUB_USERNAME}</p>
+            <h3>Full-stack and data experiments, in the open.</h3>
+            <span>
+              Liquid Life, the L9 Fitness capstone, and a running index of SQL, Python and web builds - where I learn
+              tools by shipping with them.
+            </span>
+          </div>
+          <div className={styles.repoLinks}>
+            {repos.map((repo) => (
+              <a key={repo.name} href={repo.href} target="_blank" rel="noreferrer">
+                <span>
+                  <strong>{repo.name}</strong>
+                  <small>{repo.desc}</small>
+                </span>
+                <b aria-hidden="true">-&gt;</b>
+              </a>
+            ))}
+            <a href={`https://github.com/${GITHUB_USERNAME}?tab=repositories`} target="_blank" rel="noreferrer" className={styles.allReposLink}>
+              Browse all repositories
             </a>
           </div>
+        </aside>
+      </section>
 
-          {projects.length > 0 ? (
-            <div className={`grid gap-5 md:grid-cols-2 xl:grid-cols-3 ${styles.repoGrid}`}>
-              {projects.map((project) => {
-                const liveRunUrl = getLiveRunUrl(project);
+      <section id="writing" className={styles.section}>
+        <div className={styles.sectionNarrow}><p className={styles.sectionEyebrow}>06 - Writing</p><h2 className={styles.sectionTitle}>Notes from the workbench.</h2><p className={styles.sectionIntro}>Practical notes on BI, data quality, troubleshooting and learning through doing. <Link href="/writing">Read all writing →</Link></p></div>
+      </section>
 
-                return (
-                  <article key={project.id} className={`ll-panel flex flex-col p-5 ${styles.repoCard}`}>
-                    <div className={`flex items-start justify-between gap-3 ${styles.repoTopRow}`}>
-                      <div>
-                        <h3 className="text-2xl font-semibold ll-title">{project.name}</h3>
-                        <p className="mt-1 text-xs uppercase tracking-[0.2em] ll-muted">
-                          Updated {formatDate(project.updated_at)}
-                        </p>
-                      </div>
-                      <div className={styles.starBadge}>★ {project.stargazers_count}</div>
-                    </div>
-
-                    <p className={`mt-4 min-h-24 text-sm leading-7 ll-muted ${styles.repoSummary}`}>{buildGeneralSummary(project)}</p>
-
-                    <div className={`mt-4 flex flex-wrap gap-2 ${styles.tagRow}`}>
-                      {project.language ? <span className={styles.tag}>{project.language}</span> : null}
-                      {matchesKeywords(project, ["data", "analytics", "dashboard", "report", "sql", "python"]) ? (
-                        <span className={styles.tag}>Data</span>
-                      ) : null}
-                      {matchesKeywords(project, ["helpdesk", "support", "admin", "endpoint", "m365", "incident", "cloud"]) ? (
-                        <span className={styles.tag}>Support / Ops</span>
-                      ) : null}
-                      <span className={styles.tagMuted}>Public Repo</span>
-                    </div>
-
-                    <div className={`mt-6 flex flex-wrap gap-2 ${styles.repoActions}`}>
-                      <Link href={`/projects/${toProjectSlug(project.name)}`} className={`ll-pill-btn px-3 py-2 text-sm font-semibold ${styles.repoAction}`}>
-                        Project Page
-                      </Link>
-                      <a
-                        href={project.html_url}
-                        className={`ll-pill-btn px-3 py-2 text-sm font-semibold ${styles.repoAction}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Open Repo
-                      </a>
-                      {liveRunUrl ? (
-                        <a
-                          href={liveRunUrl}
-                          className={`ll-pill-btn px-3 py-2 text-sm font-semibold ${styles.repoActionPrimary}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Live Run
-                        </a>
-                      ) : null}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <div className={`ll-panel p-6 ${styles.emptyState}`}>
-              <p className="text-sm leading-7 ll-muted">
-                GitHub import is enabled, but no public repositories were returned right now. The GitHub profile link
-                above is still valid.
-              </p>
-            </div>
-          )}
-        </section>
-
-        <section id="contact" className={`ll-panel p-6 ${styles.contactPanel}`}>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] ll-muted">Contact / Next Step</p>
-              <h2 className="mt-2 text-2xl font-semibold ll-title">This root domain is now the main portfolio home.</h2>
-              <p className="mt-3 max-w-3xl text-sm leading-7 ll-muted">
-                This portfolio is meant to show the whole picture: technical work, curiosity, community involvement,
-                and the way I want to keep growing in Australia through both technology and contribution.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <a
-                href={LINKEDIN_URL}
-                className="ll-pill-btn px-4 py-2 text-sm font-semibold"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Connect on LinkedIn
-              </a>
-              <a
-                href={githubProfileUrl}
-                className="ll-pill-btn px-4 py-2 text-sm font-semibold"
-                target="_blank"
-                rel="noreferrer"
-              >
-                GitHub Profile
-              </a>
-              <a
-                href={LIQUIDLIFE_APP_URL}
-                className="ll-pill-btn px-4 py-2 text-sm font-semibold"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open Liquid Life
-              </a>
-              <Link href="/login" className="ll-pill-btn px-4 py-2 text-sm font-semibold">
-                App Login
-              </Link>
-            </div>
+      <section id="community" className={`${styles.section} ${styles.darkSection}`}>
+        <div className={styles.communityHeader}>
+          <div>
+            <p className={styles.darkEyebrow}>07 - Community and moments</p>
+            <h2 className={styles.darkTitle}>Work matters, but community matters too.</h2>
+            <p>
+              GDG meetups, TechWalking, and showing up for other people finding their feet in tech. Giving back is part
+              of how I want to build my life here - not an afterthought.
+            </p>
           </div>
-        </section>
-      </div>
+          <span>Real moments from the communities and rooms that shaped the work.</span>
+        </div>
+        <div className={styles.momentGrid}>
+          {communityMoments.map((moment) => (
+            <article key={moment.title} className={`${styles.momentCard} ${moment.className}`}>
+              <Image src={moment.image} alt={moment.title} fill sizes="(max-width: 768px) 100vw, 33vw" />
+              <div>
+                <span>{moment.label}</span>
+                <h3>{moment.title}</h3>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="contact" className={styles.contactSection}>
+        <OrbitCanvas className={styles.orbitCanvas} />
+        <div className={styles.contactInner}>
+          <p className={styles.sectionEyebrow}>08 - Let&apos;s talk</p>
+          <h2>Have data that is not telling a straight story?</h2>
+          <p>
+            I am open to BI, business analysis and data roles - and always happy to talk shop about reporting, data
+            quality and forecasting.
+          </p>
+          <div className={styles.contactActions}>
+            <a href="mailto:rasiktiwari80@gmail.com" className={styles.primaryButton}>
+              rasiktiwari80@gmail.com
+            </a>
+            <a href={LINKEDIN_URL} target="_blank" rel="noreferrer" className={styles.lightButton}>LinkedIn</a>
+            <a href={"https://github.com/" + GITHUB_USERNAME} target="_blank" rel="noreferrer" className={styles.lightButton}>GitHub</a>
+          </div>
+
+        </div>
+      </section>
+
+      <footer className={styles.footer}>
+        <strong>Rasik Tiwari</strong>
+        <nav aria-label="Footer links">
+          <a href={`https://github.com/${GITHUB_USERNAME}`} target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+          <a href={LINKEDIN_URL} target="_blank" rel="noreferrer">
+            LinkedIn
+          </a>
+          <a href={LIQUIDLIFE_APP_URL} target="_blank" rel="noreferrer">
+            Liquid Life
+          </a>
+          <a href="mailto:rasiktiwari80@gmail.com">Email</a>
+          <a href="/privacy">Privacy</a>
+        </nav>
+        <span>&copy; {year} - Built with care</span>
+      </footer>
     </main>
   );
 }

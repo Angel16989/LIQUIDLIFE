@@ -203,8 +203,8 @@ export function deriveProjectLabel(repo: GitHubRepo) {
 
 export function deriveHighlights(repo: GitHubRepo) {
   const highlights = [
-    `Updated ${formatDate(repo.updated_at)}, which keeps this project current within the portfolio.`,
-    repo.language ? `Primary language signal: ${repo.language}.` : "Language is mixed or not explicitly surfaced by GitHub.",
+    repo.language ? "Primary language: " + repo.language + "." : "Language is mixed or not explicitly surfaced by GitHub.",
+    repo.description?.trim() || "Implementation details and source are available in the repository.",
   ];
 
   if (matchesKeywords(repo, DATA_KEYWORDS)) {
@@ -254,15 +254,15 @@ export function buildProjectProfile(repo: GitHubRepo): PortfolioProjectProfile {
   const positioning =
     override?.positioning ||
     (category === "Data & Reporting"
-      ? "Useful as a data-analyst portfolio signal because it points toward reporting, metrics, or operational visibility."
+      ? "A data and reporting project involving structured information flow and operational visibility."
       : category === "IT Support & Systems"
-        ? "Useful as a support portfolio signal because it reflects systems handling, admin work, or operational structure."
+        ? "A systems project focused on support workflows, administration or operational structure."
         : category === "Automation & Tooling"
-          ? "Useful as an operations signal because it reduces friction and turns process into repeatable tooling."
-          : "Useful as a technical portfolio signal that supports the broader analyst-plus-operator narrative.");
+          ? "An automation project focused on reducing friction and making a process repeatable."
+          : "A technical project with implementation details available in the public repository.");
   const whyItMatters =
     override?.whyItMatters ||
-    "This project contributes to the portfolio by showing practical execution, not just interest. It helps connect analysis, systems thinking, and real implementation.";
+    "The repository documents the implementation and provides context for how the system or analysis works.";
   const highlights = override?.highlights || deriveHighlights(repo);
   const stack = override?.stack || deriveStack(repo);
   const liveRunUrl = override?.liveRunUrl || getLiveRunUrl(repo);
