@@ -549,6 +549,7 @@ export default async function HomePage() {
             Liquid Life
           </a>
           <a href="mailto:rasiktiwari80@gmail.com">Email</a>
+          <a href="/privacy">Privacy</a>
         </nav>
         <span>&copy; {year} - Built with care</span>
       </footer>
