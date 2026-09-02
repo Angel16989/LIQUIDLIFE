@@ -183,3 +183,26 @@ npm run build
 ## Windows
 
 Windows-specific startup notes are in [WINDOWS.md](WINDOWS.md).
+
+
+## Portfolio website
+
+The public portfolio lives in frontend/ and uses Next.js App Router. The homepage keeps the BI-focused visual identity, with anonymised case studies under /work/[slug] and local articles under /writing/[slug].
+
+### Portfolio development
+
+npm install
+npm run dev
+npm run lint
+npx tsc --noEmit
+npm run build
+
+Writing content is stored in frontend/content/writing.ts. Add an article object with a unique slug, title, description, date, reading time, tags and typed sections; the writing index, article route, metadata and sitemap update from that source.
+
+Case studies are stored in frontend/content/caseStudies.ts. Keep examples anonymised and describe the problem, context, tools, approach, technical process, result and takeaway without internal names, schemas or credentials.
+
+The homepage and shared SEO metadata are in frontend/app/layout.tsx and frontend/app/page.tsx. frontend/app/sitemap.ts and frontend/app/robots.ts publish the search-engine routes. The site intentionally does not include a Search Console verification token: add the value through your chosen hosting provider or deployment environment when you connect rasikn.com.
+
+No public resume PDF was present in the repository. Place the approved file at frontend/public/resume.pdf, then change the homepage /resume links to /resume.pdf. Do not copy private backend document uploads into frontend/public.
+
+Portfolio changes follow the repository workflow: create a feature branch, run lint/typecheck/build, open a pull request, review the diff and checks, then merge and deploy explicitly. Production infrastructure changes such as reverse proxies, Docker, Kubernetes or hypervisors belong in separate reviewed changes.
